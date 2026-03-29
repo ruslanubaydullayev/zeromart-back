@@ -66,12 +66,16 @@ async def seller_photo(message: Message, state: FSMContext) -> None:
     photos: list[str] = list(data.get("photos", []))
     if len(photos) >= MAX_PHOTOS:
         await message.answer(
-            f"Уже {MAX_PHOTOS} фото. Нажмите «Дальше» или /cancel."
+            f"Уже {MAX_PHOTOS} фото. Нажмите «Дальше» или /cancel.",
+            reply_markup=media_done_keyboard(),
         )
         return
     photos.append(message.photo[-1].file_id)
     await state.update_data(photos=photos)
-    await message.answer(f"Фото {len(photos)}/{MAX_PHOTOS}. Можно добавить ещё или нажать «Дальше».")
+    await message.answer(
+        f"Фото {len(photos)}/{MAX_PHOTOS}. Можно добавить ещё или нажать «Дальше (фото готовы)».",
+        reply_markup=media_done_keyboard(),
+    )
 
 
 @router.message(SellerFlow.wait_media, F.video)
