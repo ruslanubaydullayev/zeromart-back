@@ -1,8 +1,10 @@
 """Admin moderation: approve, reject with reason."""
 
 import html
+import logging
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -12,6 +14,30 @@ from posting import send_ad_media
 from states import AdminFlow
 
 router = Router(name="admin")
+
+logger = logging.getLogger(__name__)
+
+
+def _publish_error_hint(exc: BaseException) -> str:
+    if isinstance(exc, TelegramForbiddenError):
+        return (
+            "Доступ запрещён. Добавьте бота в канал как администратора "
+            "и включите право «Публиковать сообщения»."
+        )
+    if isinstance(exc, TelegramAPIError):
+        msg = str(exc).lower()
+        if "chat not found" in msg or "channel not found" in msg:
+            return (
+                "Канал не найден. Проверьте CHANNEL_ID: @публичный_канал "
+                "или число -100… для приватного канала."
+            )
+        if "not enough rights" in msg or "have no rights" in msg:
+            return "Недостаточно прав в канале: разрешите боту публиковать сообщения."
+        if "wrong file identifier" in msg or "wrong remote file identifier" in msg:
+            return "Файлы объявления недействительны. Создайте объявление заново."
+        if "caption" in msg and ("parse" in msg or "entity" in msg or "html" in msg):
+            return "Ошибка в HTML-тексте поста (редко). Сообщите разработчику."
+    return f"Не удалось опубликовать: {str(exc)[:150]}"
 
 
 def _admin_ids() -> frozenset[int]:
@@ -72,8 +98,13 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
             reply_markup=None,
             caption_prefix=None,
         )
-    except Exception:
-        await cq.answer("Не удалось опубликовать. Проверьте права бота в канале.", show_alert=True)
+    except Exception as e:
+        logger.exception(
+            "Publish to channel failed ad_id=%s channel=%r",
+            ad_id,
+            settings.channel_id,
+        )
+        await cq.answer(_publish_error_hint(e), show_alert=True)
         return
 
     first_id = msgs[0].message_id if msgs else None

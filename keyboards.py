@@ -15,19 +15,6 @@ def remove_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
 
 
-def media_done_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Дальше (фото готовы)", callback_data="media:photos_done"))
-    builder.adjust(1)
-    return builder.as_markup()
-
-
-def skip_video_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Без видео", callback_data="media:skip_video"))
-    return builder.as_markup()
-
-
 def confirm_ad_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(

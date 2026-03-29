@@ -6,7 +6,6 @@ from aiogram.fsm.state import State, StatesGroup
 class SellerFlow(StatesGroup):
     wait_phone = State()
     wait_media = State()
-    wait_video = State()
     wait_title = State()
     wait_region = State()
     wait_rayon = State()

@@ -1,33 +1,37 @@
-"""Seller flow: phone, photos, optional video, text fields, confirm."""
+"""Seller flow: phone, required photo + video, text fields, confirm."""
 
 from __future__ import annotations
 
 import time
 
 from aiogram import Bot, F, Router
+from aiogram.enums import ParseMode
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database, MediaItem
 from formatting import build_summary_for_seller
-from keyboards import (
-    confirm_ad_keyboard,
-    contact_keyboard,
-    media_done_keyboard,
-    remove_keyboard,
-    skip_video_keyboard,
-)
+from keyboards import confirm_ad_keyboard, contact_keyboard, remove_keyboard
 from posting import send_ad_media
 from states import SellerFlow
 
 router = Router(name="seller")
 
-MAX_PHOTOS = 3
 MAX_TITLE = 120
 MAX_REGION = 80
 MAX_RAYON = 80
 MAX_COMMENT = 1500
 MAX_PHONE = 40
+
+
+def _both_media_ready(data: dict) -> bool:
+    return bool(data.get("listing_photo_id")) and bool(data.get("listing_video_id"))
+
+
+async def _advance_after_media(message: Message, state: FSMContext) -> None:
+    await state.set_state(SellerFlow.wait_title)
+    await message.answer("Введите заголовок объявления (кратко, для канала):")
 
 
 @router.message(SellerFlow.wait_phone, F.contact)
@@ -40,14 +44,16 @@ async def seller_phone(message: Message, state: FSMContext, db: Database) -> Non
         username=message.from_user.username,
         display_name=message.from_user.full_name,
     )
-    await state.update_data(reg_phone=phone, photos=[])
-    await message.answer(
-        "Спасибо. Отправьте от 1 до 3 фото.",
-        reply_markup=remove_keyboard(),
+    await state.update_data(
+        reg_phone=phone,
+        listing_photo_id=None,
+        listing_video_id=None,
     )
     await message.answer(
-        "Когда фото будут готовы — нажмите кнопку ниже.",
-        reply_markup=media_done_keyboard(),
+        "Спасибо. Отправьте <b>одно фото</b> и <b>одно видео</b> товара — оба файла обязательны. "
+        "Порядок любой: после двух файлов шаг продолжится сам.",
+        reply_markup=remove_keyboard(),
+        parse_mode=ParseMode.HTML,
     )
     await state.set_state(SellerFlow.wait_media)
 
@@ -61,64 +67,51 @@ async def seller_phone_required(message: Message) -> None:
 
 
 @router.message(SellerFlow.wait_media, F.photo)
-async def seller_photo(message: Message, state: FSMContext) -> None:
+async def seller_listing_photo(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    photos: list[str] = list(data.get("photos", []))
-    if len(photos) >= MAX_PHOTOS:
+    if data.get("listing_photo_id"):
         await message.answer(
-            f"Уже {MAX_PHOTOS} фото. Нажмите «Дальше» или /cancel.",
-            reply_markup=media_done_keyboard(),
+            "Фото уже получено. Если ещё не отправляли — пришлите <b>одно видео</b>.",
+            parse_mode=ParseMode.HTML,
         )
         return
-    photos.append(message.photo[-1].file_id)
-    await state.update_data(photos=photos)
-    await message.answer(
-        f"Фото {len(photos)}/{MAX_PHOTOS}. Можно добавить ещё или нажать «Дальше (фото готовы)».",
-        reply_markup=media_done_keyboard(),
-    )
+    await state.update_data(listing_photo_id=message.photo[-1].file_id)
+    data = await state.get_data()
+    if _both_media_ready(data):
+        await _advance_after_media(message, state)
+    else:
+        await message.answer(
+            "Фото получено. Теперь отправьте <b>одно видео</b>.",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 @router.message(SellerFlow.wait_media, F.video)
-async def seller_video_before_photos(message: Message) -> None:
-    await message.answer("Сначала отправьте 1–3 фото. Видео будет на следующем шаге.")
-
-
-@router.callback_query(SellerFlow.wait_media, F.data == "media:photos_done")
-async def seller_photos_done(cq: CallbackQuery, state: FSMContext) -> None:
+async def seller_listing_video(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    photos = data.get("photos", [])
-    if len(photos) < 1:
-        await cq.answer("Нужно минимум одно фото.", show_alert=True)
+    if data.get("listing_video_id"):
+        await message.answer(
+            "Видео уже получено. Если ещё не отправляли — пришлите <b>одно фото</b>.",
+            parse_mode=ParseMode.HTML,
+        )
         return
-    await cq.answer()
-    try:
-        await cq.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-    await state.set_state(SellerFlow.wait_video)
-    await cq.message.answer(
-        "Пришлите видео (необязательно) или нажмите «Без видео».",
-        reply_markup=skip_video_keyboard(),
+    await state.update_data(listing_video_id=message.video.file_id)
+    data = await state.get_data()
+    if _both_media_ready(data):
+        await _advance_after_media(message, state)
+    else:
+        await message.answer(
+            "Видео получено. Теперь отправьте <b>одно фото</b>.",
+            parse_mode=ParseMode.HTML,
+        )
+
+
+@router.message(SellerFlow.wait_media)
+async def seller_media_need_files(message: Message) -> None:
+    await message.answer(
+        "Нужны медиафайлы: одно <b>фото</b> и одно <b>видео</b> (не текст и не «кружок»).",
+        parse_mode=ParseMode.HTML,
     )
-
-
-@router.callback_query(SellerFlow.wait_video, F.data == "media:skip_video")
-async def seller_skip_video_cb(cq: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(video=None)
-    await cq.answer()
-    try:
-        await cq.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-    await state.set_state(SellerFlow.wait_title)
-    await cq.message.answer("Введите заголовок объявления (кратко, для канала):")
-
-
-@router.message(SellerFlow.wait_video, F.video)
-async def seller_video(message: Message, state: FSMContext) -> None:
-    await state.update_data(video=message.video.file_id)
-    await state.set_state(SellerFlow.wait_title)
-    await message.answer("Введите заголовок объявления (кратко, для канала):")
 
 
 @router.message(SellerFlow.wait_title, F.text)
@@ -184,10 +177,8 @@ async def seller_ad_phone(message: Message, state: FSMContext) -> None:
         data["comment"],
         phone,
     )
-    photos_n = len(data.get("photos", []))
-    vid = "да" if data.get("video") else "нет"
     await message.answer(
-        summary + f"\n\nФото: {photos_n}, видео: {vid}",
+        summary + "\n\nМедиа: 1 фото, 1 видео",
         reply_markup=confirm_ad_keyboard(),
         parse_mode="HTML",
     )
@@ -217,17 +208,16 @@ async def seller_confirm_ad(cq: CallbackQuery, state: FSMContext, db: Database, 
         return
 
     data = await state.get_data()
-    photos: list[str] = list(data.get("photos", []))
-    if len(photos) < 1:
-        await cq.answer("Нет фото — начните заново с /start.", show_alert=True)
+    photo_fid = data.get("listing_photo_id")
+    video_fid = data.get("listing_video_id")
+    if not photo_fid or not video_fid:
+        await cq.answer("Нужны фото и видео — начните заново с /start.", show_alert=True)
         return
 
-    media_items: list[MediaItem] = [
-        MediaItem(kind="photo", file_id=fid, position=i) for i, fid in enumerate(photos)
+    media_items = [
+        MediaItem(kind="photo", file_id=photo_fid, position=0),
+        MediaItem(kind="video", file_id=video_fid, position=1),
     ]
-    video = data.get("video")
-    if video:
-        media_items.append(MediaItem(kind="video", file_id=video, position=len(media_items)))
 
     ad_id = await db.create_ad(
         uid,
