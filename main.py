@@ -23,6 +23,15 @@ def _validate_startup() -> None:
         sys.exit(1)
     if not settings.admin_ids:
         logging.warning("ADMIN_IDS is empty — moderation will be impossible.")
+    if settings.outbound_proxy:
+        try:
+            import aiohttp_socks  # noqa: F401
+        except ImportError:
+            logging.error(
+                "Proxy is enabled (PA_USE_OUTBOUND_PROXY / HTTP_PROXY) but aiohttp-socks is missing. "
+                "Activate the project venv and run: pip install -r requirements.txt"
+            )
+            sys.exit(1)
 
 
 def _make_bot() -> Bot:
