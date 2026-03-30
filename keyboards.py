@@ -6,6 +6,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 # Текст кнопки главного меню продавца (должен совпадать везде)
 SUBMIT_AD_TEXT = "Подать объявление"
 
+# Reply-клавиша на шаге медиа (под полем ввода)
+NEXT_STEP_TEXT = "Дальше"
+
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
@@ -25,10 +28,11 @@ def remove_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
 
 
-def listing_media_next_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Дальше", callback_data="listing_media:done"))
-    return builder.as_markup()
+def media_next_reply_keyboard() -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.add(KeyboardButton(text=NEXT_STEP_TEXT))
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True)
 
 
 def confirm_ad_keyboard() -> InlineKeyboardMarkup:
