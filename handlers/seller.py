@@ -211,7 +211,7 @@ async def seller_rayon(message: Message, state: FSMContext) -> None:
 async def seller_comment(message: Message, state: FSMContext, db: Database) -> None:
     comment = message.text.strip()
     if len(comment) < MIN_COMMENT_LEN:
-        await message.answer("Комментарий должен содержать более 3 символов.")
+        await message.answer("Комментарий должен содержать более 4 символов.")
         return
     if len(comment) > MAX_COMMENT:
         await message.answer(f"Комментарий: не более {MAX_COMMENT} символов.")
