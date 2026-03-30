@@ -110,6 +110,31 @@ class Database:
             )
             await db.commit()
 
+    async def user_has_phone(self, user_id: int) -> bool:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            cur = await db.execute(
+                "SELECT phone FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            if not row or row[0] is None:
+                return False
+            return bool(str(row[0]).strip())
+
+    async def get_user_phone(self, user_id: int) -> str | None:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            cur = await db.execute(
+                "SELECT phone FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            if not row or row[0] is None:
+                return None
+            s = str(row[0]).strip()
+            return s or None
+
     async def count_recent_ads(self, user_id: int, since_ts: float) -> int:
         async with aiosqlite.connect(self._path) as db:
             await self._prepare(db)
