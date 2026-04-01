@@ -37,6 +37,17 @@ def media_next_reply_keyboard() -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True)
 
 
+def use_registered_phone_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="📱 Номер из регистрации",
+            callback_data="ad_phone:reg",
+        )
+    )
+    return builder.as_markup()
+
+
 def confirm_ad_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(

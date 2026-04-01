@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 import time
 
@@ -21,6 +22,7 @@ from keyboards import (
     main_menu_keyboard,
     media_next_reply_keyboard,
     remove_keyboard,
+    use_registered_phone_keyboard,
 )
 from posting import send_ad_media
 from states import SellerFlow
@@ -39,11 +41,49 @@ MAX_COMMENT = 1500
 AD_PHONE_UZ = re.compile(r"^\+998[0-9]{9}$")
 MAX_LISTING_PHOTOS = 3
 
+
+def normalize_phone_to_ad_uz(raw: str) -> str | None:
+    """Номер из Telegram/контакта часто без «+» — приводим к +998XXXXXXXXX."""
+    s = raw.strip().replace(" ", "").replace("-", "")
+    if not s:
+        return None
+    if AD_PHONE_UZ.fullmatch(s):
+        return s
+    if len(s) == 12 and s.startswith("998") and s.isdigit():
+        return "+" + s
+    if len(s) == 9 and s.isdigit():
+        return "+998" + s
+    return None
+
+
+async def _complete_ad_phone_step(message: Message, state: FSMContext, phone: str) -> None:
+    await state.update_data(ad_phone=phone)
+    await state.set_state(SellerFlow.wait_confirm)
+    data = await state.get_data()
+    n_photos = len(data.get("listing_photos") or [])
+    summary = build_summary_for_seller(
+        data["title"],
+        data["region"],
+        data["rayon"],
+        data["comment"],
+        phone,
+    )
+    await message.answer(
+        summary + f"\n\nМедиа: {n_photos} фото, 1 видео",
+        reply_markup=confirm_ad_keyboard(),
+        parse_mode=ParseMode.HTML,
+    )
+
 LISTING_MEDIA_INTRO = (
-    "Сначала отправьте <b>от 1 до 3 фото</b> товара. После каждого фото появится кнопка "
-    f"«{NEXT_STEP_TEXT}» под полем ввода (можно добавить ещё фото или нажать её, если фото готовы). "
-    f"Затем пришлите <b>одно видео</b> и снова нажмите «{NEXT_STEP_TEXT}», чтобы перейти к тексту объявления."
+    "Нужны <b>от 1 до 3 фото</b> и <b>одно видео</b> — <b>в любом порядке</b> (сначала видео или сначала фото — неважно). "
+    f"Под полем ввода — «{NEXT_STEP_TEXT}». Когда и фото, и видео уже отправлены, нажмите «{NEXT_STEP_TEXT}», "
+    "чтобы перейти к тексту объявления."
 )
+
+
+def _listing_media_complete(data: dict) -> bool:
+    photos: list = list(data.get("listing_photos") or [])
+    return len(photos) >= 1 and bool(data.get("listing_video_id"))
 
 
 @router.message(F.text == SUBMIT_AD_TEXT)
@@ -58,7 +98,7 @@ async def submit_ad_from_menu(message: Message, state: FSMContext, db: Database)
         )
         return
     await state.update_data(listing_photos=[], listing_video_id=None)
-    await state.set_state(SellerFlow.wait_media_photos)
+    await state.set_state(SellerFlow.wait_media)
     await message.answer(
         LISTING_MEDIA_INTRO,
         reply_markup=remove_keyboard(),
@@ -93,80 +133,81 @@ async def seller_phone_required(message: Message) -> None:
     )
 
 
-@router.message(SellerFlow.wait_media_photos, F.photo)
+@router.message(SellerFlow.wait_media, F.photo)
 async def seller_listing_photo(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     photos: list[str] = list(data.get("listing_photos") or [])
     if len(photos) >= MAX_LISTING_PHOTOS:
         await message.answer(
-            f"Уже {MAX_LISTING_PHOTOS} фото. Нажмите «{NEXT_STEP_TEXT}», чтобы перейти к видео.",
+            f"Уже {MAX_LISTING_PHOTOS} фото. Нажмите «{NEXT_STEP_TEXT}», если есть и видео.",
             reply_markup=media_next_reply_keyboard(),
             parse_mode=ParseMode.HTML,
         )
         return
     photos.append(message.photo[-1].file_id)
     await state.update_data(listing_photos=photos)
-    n = len(photos)
-    await message.answer(
-        f"Фото {n}/{MAX_LISTING_PHOTOS}. Можно добавить ещё или нажать «{NEXT_STEP_TEXT}».",
-        reply_markup=media_next_reply_keyboard(),
-        parse_mode=ParseMode.HTML,
-    )
-
-
-@router.message(SellerFlow.wait_media_photos, F.text == NEXT_STEP_TEXT)
-async def seller_photos_next(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    photos: list[str] = list(data.get("listing_photos") or [])
-    if len(photos) < 1:
-        await message.answer("Сначала отправьте хотя бы одно фото.")
-        return
-    await state.set_state(SellerFlow.wait_media_video)
+    n = len(photos)
+    has_video = bool(data.get("listing_video_id"))
+    if _listing_media_complete(data):
+        text = (
+            f"Фото {n}/{MAX_LISTING_PHOTOS}. Всё готово (есть фото и видео) — нажмите «{NEXT_STEP_TEXT}»."
+        )
+    elif has_video:
+        text = f"Фото {n}/{MAX_LISTING_PHOTOS}. Можно добавить ещё фото или нажать «{NEXT_STEP_TEXT}»."
+    else:
+        text = (
+            f"Фото {n}/{MAX_LISTING_PHOTOS}. Отправьте ещё <b>одно видео</b>, "
+            f"потом «{NEXT_STEP_TEXT}»."
+        )
     await message.answer(
-        "Теперь отправьте <b>одно видео</b> товара. После загрузки появится «Дальше».",
-        reply_markup=remove_keyboard(),
+        text,
+        reply_markup=media_next_reply_keyboard(),
         parse_mode=ParseMode.HTML,
     )
 
 
-@router.message(SellerFlow.wait_media_photos, F.video)
-async def seller_video_wrong_phase(message: Message) -> None:
-    await message.answer(
-        "Сначала закончите с фото (1–3 шт.) и нажмите «Дальше», затем отправьте видео.",
-    )
-
-
-@router.message(SellerFlow.wait_media_photos)
-async def seller_photos_need_media(message: Message) -> None:
-    await message.answer(
-        "Пришлите до 3 фото или нажмите «Дальше», чтобы перейти к видео (нужно минимум 1 фото).",
-        reply_markup=media_next_reply_keyboard(),
-    )
-
-
-@router.message(SellerFlow.wait_media_video, F.video)
+@router.message(SellerFlow.wait_media, F.video)
 async def seller_listing_video(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     if data.get("listing_video_id"):
         await message.answer(
-            "Видео уже получено. Нажмите «Дальше», чтобы продолжить.",
+            "Видео уже получено. Можно добавить фото (до 3) или нажать «Дальше», если всё готово.",
             reply_markup=media_next_reply_keyboard(),
             parse_mode=ParseMode.HTML,
         )
         return
     await state.update_data(listing_video_id=message.video.file_id)
+    data = await state.get_data()
+    n = len(data.get("listing_photos") or [])
+    if _listing_media_complete(data):
+        text = f"Видео получено. Всё готово — нажмите «{NEXT_STEP_TEXT}»."
+    elif n >= 1:
+        text = (
+            f"Видео получено. Фото: {n}/{MAX_LISTING_PHOTOS}. "
+            f"Можно добавить ещё фото или нажать «{NEXT_STEP_TEXT}»."
+        )
+    else:
+        text = (
+            "Видео получено. Теперь отправьте <b>хотя бы одно фото</b>, "
+            f"затем «{NEXT_STEP_TEXT}»."
+        )
     await message.answer(
-        f"Видео получено. Нажмите «{NEXT_STEP_TEXT}», чтобы перейти к тексту объявления.",
+        text,
         reply_markup=media_next_reply_keyboard(),
         parse_mode=ParseMode.HTML,
     )
 
 
-@router.message(SellerFlow.wait_media_video, F.text == NEXT_STEP_TEXT)
-async def seller_video_next(message: Message, state: FSMContext) -> None:
+@router.message(SellerFlow.wait_media, F.text == NEXT_STEP_TEXT)
+async def seller_media_next(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
+    photos: list[str] = list(data.get("listing_photos") or [])
+    if len(photos) < 1:
+        await message.answer("Нужно хотя бы одно фото.")
+        return
     if not data.get("listing_video_id"):
-        await message.answer("Сначала отправьте одно видео.")
+        await message.answer("Нужно одно видео.")
         return
     await state.set_state(SellerFlow.wait_title)
     await message.answer(
@@ -175,15 +216,11 @@ async def seller_video_next(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(SellerFlow.wait_media_video, F.photo)
-async def seller_photo_wrong_phase_video(message: Message) -> None:
-    await message.answer("Сейчас нужно только одно видео.")
-
-
-@router.message(SellerFlow.wait_media_video)
-async def seller_video_need_file(message: Message) -> None:
+@router.message(SellerFlow.wait_media)
+async def seller_media_need_files(message: Message) -> None:
     await message.answer(
-        "Пришлите одно видеофайл или нажмите «Дальше», если видео уже отправлено.",
+        "Пришлите фото (до 3) и одно видео — в любом порядке. "
+        f"Когда оба типа файлов есть — «{NEXT_STEP_TEXT}».",
         reply_markup=media_next_reply_keyboard(),
     )
 
@@ -251,38 +288,61 @@ async def seller_comment(message: Message, state: FSMContext, db: Database) -> N
     await state.update_data(comment=comment)
     await state.set_state(SellerFlow.wait_ad_phone)
     hint = await db.get_user_phone(message.from_user.id) or ""
-    extra = f"\n(ваш номер при регистрации: {hint})" if hint else ""
+    extra = (
+        f"\n(ваш номер при регистрации: <code>{html.escape(hint)}</code>)"
+        if hint
+        else ""
+    )
+    reg_kb = use_registered_phone_keyboard() if hint else None
     await message.answer(
-        f"Телефон для связи по объявлению (строго <code>+998901234567</code> — плюс, 998 и 9 цифр):{extra}",
+        f"Телефон для связи по объявлению (формат <code>+998901234567</code>):{extra}\n\n"
+        "Можно ввести вручную или нажать кнопку ниже.",
+        reply_markup=reg_kb,
         parse_mode=ParseMode.HTML,
     )
+
+
+@router.callback_query(SellerFlow.wait_ad_phone, F.data == "ad_phone:reg")
+async def use_registered_phone_cb(cq: CallbackQuery, state: FSMContext, db: Database) -> None:
+    raw = await db.get_user_phone(cq.from_user.id)
+    if not raw:
+        await cq.answer("Номер регистрации не найден.", show_alert=True)
+        return
+    phone = normalize_phone_to_ad_uz(raw)
+    if not phone:
+        await cq.answer(
+            "Не удалось привести номер из Telegram к виду +998… Введите номер вручную.",
+            show_alert=True,
+        )
+        return
+    if not AD_PHONE_UZ.fullmatch(phone):
+        await cq.answer("Номер не подходит под формат +998…. Введите вручную.", show_alert=True)
+        return
+    await cq.answer("Подставлен номер из регистрации")
+    try:
+        await cq.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await _complete_ad_phone_step(cq.message, state, phone)
 
 
 @router.message(SellerFlow.wait_ad_phone, F.text)
-async def seller_ad_phone(message: Message, state: FSMContext) -> None:
+async def seller_ad_phone(message: Message, state: FSMContext, db: Database) -> None:
     phone = message.text.strip().replace(" ", "")
+    phone = normalize_phone_to_ad_uz(phone) or phone
     if not AD_PHONE_UZ.fullmatch(phone):
+        reg_kb = (
+            use_registered_phone_keyboard()
+            if await db.get_user_phone(message.from_user.id)
+            else None
+        )
         await message.answer(
             "Номер только в формате <code>+998901234567</code>: плюс, 998, затем 9 цифр без пробелов.",
+            reply_markup=reg_kb,
             parse_mode=ParseMode.HTML,
         )
         return
-    await state.update_data(ad_phone=phone)
-    await state.set_state(SellerFlow.wait_confirm)
-    data = await state.get_data()
-    n_photos = len(data.get("listing_photos") or [])
-    summary = build_summary_for_seller(
-        data["title"],
-        data["region"],
-        data["rayon"],
-        data["comment"],
-        phone,
-    )
-    await message.answer(
-        summary + f"\n\nМедиа: {n_photos} фото, 1 видео",
-        reply_markup=confirm_ad_keyboard(),
-        parse_mode=ParseMode.HTML,
-    )
+    await _complete_ad_phone_step(message, state, phone)
 
 
 @router.callback_query(SellerFlow.wait_confirm, F.data == "ad:cancel")
