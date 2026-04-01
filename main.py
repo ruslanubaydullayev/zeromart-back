@@ -13,7 +13,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import settings
 from database import Database
-from handlers import admin_router, common_router, seller_router
+from handlers import admin_router, common_router, my_ads_router, seller_router
 from middlewares import DatabaseMiddleware
 
 
@@ -58,6 +58,7 @@ async def main() -> None:
     dp.update.middleware(DatabaseMiddleware(db))
 
     dp.include_router(common_router)
+    dp.include_router(my_ads_router)
     dp.include_router(seller_router)
     dp.include_router(admin_router)
 

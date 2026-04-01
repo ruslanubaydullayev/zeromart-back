@@ -2,12 +2,27 @@
 
 from __future__ import annotations
 
+import logging
+
 from aiogram import Bot
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from database import AdRecord, MediaItem
 from formatting import build_channel_caption
+
+logger = logging.getLogger(__name__)
+
+
+async def try_delete_channel_post(bot: Bot, chat_id: str | int, message_id: int | None) -> None:
+    """Удаляет пост в канале (если был альбом, в БД обычно только id первого сообщения)."""
+    if message_id is None or chat_id is None or chat_id == "":
+        return
+    try:
+        await bot.delete_message(chat_id, message_id)
+    except TelegramAPIError as e:
+        logger.warning("Не удалось удалить сообщение %s в канале: %s", message_id, e)
 
 
 def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:

@@ -3,8 +3,9 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-# Текст кнопки главного меню продавца (должен совпадать везде)
-SUBMIT_AD_TEXT = "Подать объявление"
+# Главное меню продавца (тексты должны совпадать везде)
+SUBMIT_AD_TEXT = "Разместить объявление"
+MY_ADS_TEXT = "Мои объявления"
 
 # Reply-клавиша на шаге медиа (под полем ввода)
 NEXT_STEP_TEXT = "Дальше"
@@ -13,6 +14,7 @@ NEXT_STEP_TEXT = "Дальше"
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text=SUBMIT_AD_TEXT))
+    builder.add(KeyboardButton(text=MY_ADS_TEXT))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True)
 

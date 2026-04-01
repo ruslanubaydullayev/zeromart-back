@@ -30,8 +30,8 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
 
     if await db.user_has_phone(uid):
         await message.answer(
-            "С возвращением! Номер у нас уже сохранён — повторно делиться им не нужно.\n"
-            "Нажмите <b>Подать объявление</b> в меню ниже.",
+            "С возвращением! Номер сохранён — кнопка «Поделиться телефоном» больше не нужна.\n"
+            "В меню: <b>Разместить объявление</b> и <b>Мои объявления</b>.",
             reply_markup=main_menu_keyboard(),
             parse_mode="HTML",
         )
@@ -54,7 +54,7 @@ async def cmd_cancel(message: Message, state: FSMContext, db: Database) -> None:
     uid = message.from_user.id
     if uid not in settings.admin_ids and await db.user_has_phone(uid):
         await message.answer(
-            "Сценарий сброшен. Чтобы снова подать объявление — кнопка в меню.",
+            "Сценарий сброшен. Дальше — кнопки в меню.",
             reply_markup=main_menu_keyboard(),
         )
         return

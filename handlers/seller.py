@@ -77,8 +77,8 @@ async def seller_phone(message: Message, state: FSMContext, db: Database) -> Non
     )
     await state.clear()
     await message.answer(
-        "Спасибо, номер сохранён. Вы авторизованы — номер больше не запрашиваем.\n"
-        "Чтобы подать объявление, нажмите <b>Подать объявление</b> в меню.",
+        "Спасибо, номер сохранён. Клавиатура «Поделиться телефоном» больше не нужна.\n"
+        "В меню: <b>Разместить объявление</b> и <b>Мои объявления</b>.",
         reply_markup=main_menu_keyboard(),
         parse_mode=ParseMode.HTML,
     )
@@ -294,7 +294,7 @@ async def seller_cancel_ad(cq: CallbackQuery, state: FSMContext, db: Database) -
         pass
     if uid not in settings.admin_ids and await db.user_has_phone(uid):
         await cq.message.answer(
-            "Объявление не сохранено. Можете снова нажать «Подать объявление».",
+            "Объявление не сохранено. Используйте меню ниже.",
             reply_markup=main_menu_keyboard(),
         )
     else:

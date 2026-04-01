@@ -2,6 +2,7 @@
 
 from handlers.admin import router as admin_router
 from handlers.common import router as common_router
+from handlers.my_ads import router as my_ads_router
 from handlers.seller import router as seller_router
 
-__all__ = ["admin_router", "common_router", "seller_router"]
+__all__ = ["admin_router", "common_router", "my_ads_router", "seller_router"]

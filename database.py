@@ -254,3 +254,35 @@ class Database:
                 (ad_id, reason, now),
             )
             await db.commit()
+
+    async def list_user_ads_recent(self, user_id: int, limit: int = 15) -> list[AdRecord]:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """
+                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at, channel_message_id
+                FROM ads WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            )
+            rows = await cur.fetchall()
+            out: list[AdRecord] = []
+            for row in rows:
+                out.append(
+                    AdRecord(
+                        id=row["id"],
+                        user_id=row["user_id"],
+                        title=row["title"],
+                        region=row["region"],
+                        rayon=row["rayon"],
+                        comment=row["comment"],
+                        phone=row["phone"],
+                        status=row["status"],
+                        created_at=row["created_at"],
+                        channel_message_id=row["channel_message_id"],
+                    )
+                )
+            return out

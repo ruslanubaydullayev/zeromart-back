@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database
+from keyboards import main_menu_keyboard
 from posting import send_ad_media
 from states import AdminFlow
 
@@ -109,7 +110,11 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
 
     first_id = msgs[0].message_id if msgs else None
     await db.set_ad_status(ad_id, "approved", channel_message_id=first_id)
-    await bot.send_message(ad.user_id, "Ваше объявление одобрено и опубликовано в канале.")
+    await bot.send_message(
+        ad.user_id,
+        "Ваше объявление одобрено и опубликовано в канале.",
+        reply_markup=main_menu_keyboard(),
+    )
     await cq.answer("Опубликовано")
     try:
         await cq.message.edit_reply_markup(reply_markup=None)
@@ -142,6 +147,7 @@ async def admin_reject_reason(message: Message, state: FSMContext, db: Database,
     await bot.send_message(
         ad.user_id,
         f"Объявление отклонено.\nПричина: {html.escape(reason)}",
+        reply_markup=main_menu_keyboard(),
     )
     await state.clear()
     await message.answer("Отклонение сохранено, продавец уведомлён.")
