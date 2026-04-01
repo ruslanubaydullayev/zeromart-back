@@ -19,6 +19,7 @@ CATEGORY_SLUGS: tuple[str, ...] = (
     "toys",
     "sports",
     "pet",
+    "other",
 )
 
 REGION_TASHKENT = "Tashkent"

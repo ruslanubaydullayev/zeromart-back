@@ -88,7 +88,7 @@ def _lang_from_data(data: dict) -> str:
 
 def _listing_media_complete(data: dict) -> bool:
     photos: list = list(data.get("listing_photos") or [])
-    return len(photos) >= 1 and bool(data.get("listing_video_id"))
+    return len(photos) >= 1
 
 
 async def _phone_prompt_for_user(db: Database, uid: int) -> tuple[str, bool]:
@@ -111,6 +111,8 @@ async def _complete_ad_phone_step(
     data = await state.get_data()
     lang = _lang_from_data(data)
     n_photos = len(data.get("listing_photos") or [])
+    has_video = bool(data.get("listing_video_id"))
+    video_part = ", 1 видео" if has_video else ""
     summary = build_summary_for_seller(
         lang,
         data["category"],
@@ -123,7 +125,7 @@ async def _complete_ad_phone_step(
     await wizard_replace_prompt(
         message,
         state,
-        summary + f"\n\n{tr(lang, 'summary_media', photos=n_photos)}",
+        summary + f"\n\n{tr(lang, 'summary_media', photos=n_photos, video_part=video_part)}",
         reply_markup=confirm_ad_keyboard(lang),
         parse_mode=ParseMode.HTML,
         delete_user_message_id=delete_user_message_id,
@@ -321,7 +323,7 @@ async def seller_listing_photo(message: Message, state: FSMContext) -> None:
     elif has_video:
         text = tr(lang, "photo_more_or_next", n=n, max=MAX_LISTING_PHOTOS, next=tr(lang, "next"))
     else:
-        text = tr(lang, "photo_need_video", n=n, max=MAX_LISTING_PHOTOS, next=tr(lang, "next"))
+        text = tr(lang, "photo_more_or_next", n=n, max=MAX_LISTING_PHOTOS, next=tr(lang, "next"))
     await wizard_replace_prompt(
         message,
         state,
@@ -375,16 +377,6 @@ async def seller_media_next(message: Message, state: FSMContext) -> None:
             message,
             state,
             tr(lang, "need_photo"),
-            reply_markup=wizard_media_reply_keyboard(lang),
-            parse_mode=ParseMode.HTML,
-            delete_user_message_id=message.message_id,
-        )
-        return
-    if not data.get("listing_video_id"):
-        await wizard_replace_prompt(
-            message,
-            state,
-            tr(lang, "need_video"),
             reply_markup=wizard_media_reply_keyboard(lang),
             parse_mode=ParseMode.HTML,
             delete_user_message_id=message.message_id,
@@ -746,16 +738,17 @@ async def seller_confirm_ad(cq: CallbackQuery, state: FSMContext, db: Database, 
     data = await state.get_data()
     photos: list[str] = list(data.get("listing_photos") or [])
     video_fid = data.get("listing_video_id")
-    if len(photos) < 1 or not video_fid:
+    if len(photos) < 1:
         await cq.answer(tr(lang, "ad_incomplete_restart"), show_alert=True)
         return
 
     media_items = [
         MediaItem(kind="photo", file_id=fid, position=i) for i, fid in enumerate(photos)
     ]
-    media_items.append(
-        MediaItem(kind="video", file_id=video_fid, position=len(photos)),
-    )
+    if video_fid:
+        media_items.append(
+            MediaItem(kind="video", file_id=video_fid, position=len(photos)),
+        )
 
     ad_id = await db.create_ad(
         uid,
