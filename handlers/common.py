@@ -33,7 +33,7 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
     lang = normalize_locale(await db.get_user_lang(uid))
     if not await db.get_user_lang(uid):
         await message.answer(
-            tr("ru", "start_choose_language"),
+            tr(lang, "start_choose_language"),
             reply_markup=language_choose_keyboard(),
         )
         return

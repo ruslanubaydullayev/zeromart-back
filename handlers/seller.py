@@ -10,7 +10,7 @@ from aiogram import Bot, F, Router
 from aiogram.enums import ParseMode
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InputMediaPhoto, InputMediaVideo, Message
 
 from config import settings
 from database import Database, MediaItem
@@ -122,10 +122,32 @@ async def _complete_ad_phone_step(
         data["comment"],
         phone,
     )
+    preview_caption = summary + f"\n\n{tr(lang, 'summary_media', photos=n_photos, video_part=video_part)}"
+    photos: list[str] = list(data.get("listing_photos") or [])
+    video_fid = data.get("listing_video_id")
+    if photos or video_fid:
+        media_bundle: list[InputMediaPhoto | InputMediaVideo] = []
+        for idx, fid in enumerate(photos):
+            media_bundle.append(
+                InputMediaPhoto(
+                    media=fid,
+                    caption=preview_caption if idx == 0 else None,
+                    parse_mode=ParseMode.HTML if idx == 0 else None,
+                )
+            )
+        if video_fid:
+            media_bundle.append(
+                InputMediaVideo(
+                    media=video_fid,
+                    caption=preview_caption if not photos else None,
+                    parse_mode=ParseMode.HTML if not photos else None,
+                )
+            )
+        await message.answer_media_group(media=media_bundle)
     await wizard_replace_prompt(
         message,
         state,
-        summary + f"\n\n{tr(lang, 'summary_media', photos=n_photos, video_part=video_part)}",
+        tr(lang, "confirm_prompt_after_preview"),
         reply_markup=confirm_ad_keyboard(lang),
         parse_mode=ParseMode.HTML,
         delete_user_message_id=delete_user_message_id,

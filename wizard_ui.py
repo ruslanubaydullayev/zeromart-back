@@ -11,12 +11,8 @@ WIZARD_PROMPT_KEY = "wizard_prompt_id"
 
 
 async def _safe_delete(bot: Bot, chat_id: int, message_id: int | None) -> None:
-    if message_id is None:
-        return
-    try:
-        await bot.delete_message(chat_id, message_id)
-    except Exception:
-        pass
+    # History mode: we keep chat history and do not delete messages.
+    return
 
 
 async def wizard_replace_prompt(

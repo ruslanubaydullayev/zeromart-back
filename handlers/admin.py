@@ -12,6 +12,7 @@ from aiogram.types import CallbackQuery, Message
 from config import settings
 from database import Database
 from keyboards import main_menu_keyboard
+from language import normalize_locale, tr
 from posting import send_ad_media
 from states import AdminFlow
 
@@ -118,10 +119,11 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         channel_message_id=first_id,
         channel_message_ids_json=ids_json,
     )
+    user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
     await bot.send_message(
         ad.user_id,
-        "Ваше объявление одобрено и опубликовано в канале.",
-        reply_markup=main_menu_keyboard("ru"),
+        tr(user_lang, "ad_approved_published"),
+        reply_markup=main_menu_keyboard(user_lang),
     )
     await cq.answer("Опубликовано")
     try:
