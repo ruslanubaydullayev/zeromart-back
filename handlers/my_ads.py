@@ -11,37 +11,40 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import settings
 from database import AdRecord, Database
-from keyboards import MY_ADS_TEXT, main_menu_keyboard
+from keyboards import main_menu_keyboard
+from language import all_variant_texts, normalize_locale, tr
 from posting import try_delete_ad_from_channel
 
 router = Router(name="my_ads")
 
 
-def _status_ru(status: str) -> str:
+def _status_local(locale: str | None, status: str) -> str:
+    loc = normalize_locale(locale)
     return {
-        "pending": "на модерации",
-        "approved": "в канале",
-        "rejected": "отклонено",
-        "delivered": "товар доставлен",
-        "withdrawn": "снято с продажи",
+        "pending": tr(loc, "status_pending"),
+        "approved": tr(loc, "status_approved"),
+        "rejected": tr(loc, "status_rejected"),
+        "delivered": tr(loc, "status_delivered"),
+        "withdrawn": tr(loc, "status_withdrawn"),
     }.get(status, status)
 
 
-def _ad_summary_line(ad: AdRecord) -> str:
+def _ad_summary_line(locale: str | None, ad: AdRecord) -> str:
     ts = datetime.fromtimestamp(ad.created_at).strftime("%d.%m.%Y %H:%M")
     title = ad.title.replace("\n", " ").strip()
     if len(title) > 80:
         title = title[:80] + "…"
-    st = _status_ru(ad.status)
+    st = _status_local(locale, ad.status)
     return f"#{ad.id} · {title}\n{st} · {ts}"
 
 
-def _owner_actions_keyboard(ad: AdRecord) -> InlineKeyboardBuilder | None:
+def _owner_actions_keyboard(locale: str | None, ad: AdRecord) -> InlineKeyboardBuilder | None:
+    loc = normalize_locale(locale)
     if ad.status == "pending":
         b = InlineKeyboardBuilder()
         b.row(
             InlineKeyboardButton(
-                text="Не хочу продавать",
+                text=tr(loc, "myad_withdraw_pending"),
                 callback_data=f"myad:withdraw:{ad.id}",
             )
         )
@@ -50,11 +53,11 @@ def _owner_actions_keyboard(ad: AdRecord) -> InlineKeyboardBuilder | None:
         b = InlineKeyboardBuilder()
         b.row(
             InlineKeyboardButton(
-                text="Товар доставлен",
+                text=tr(loc, "myad_delivered"),
                 callback_data=f"myad:delivered:{ad.id}",
             ),
             InlineKeyboardButton(
-                text="Не хочу продавать",
+                text=tr(loc, "myad_withdraw_pending"),
                 callback_data=f"myad:withdraw:{ad.id}",
             ),
         )
@@ -62,13 +65,14 @@ def _owner_actions_keyboard(ad: AdRecord) -> InlineKeyboardBuilder | None:
     return None
 
 
-@router.message(F.text == MY_ADS_TEXT)
+@router.message(F.text.in_(all_variant_texts("menu_my_ads")))
 async def open_my_ads(message: Message, state: FSMContext, db: Database) -> None:
+    lang = normalize_locale(await db.get_user_lang(message.from_user.id))
     if message.from_user.id in settings.admin_ids:
-        await message.answer("Раздел для продавцов.")
+        await message.answer(tr(lang, "my_ads_sellers_only"))
         return
     if not await db.user_has_phone(message.from_user.id):
-        await message.answer("Сначала /start и номер телефона.")
+        await message.answer(tr(lang, "my_ads_need_phone"))
         return
 
     await state.clear()
@@ -76,19 +80,18 @@ async def open_my_ads(message: Message, state: FSMContext, db: Database) -> None
     ads = await db.list_user_ads_recent(uid, limit=15)
     if not ads:
         await message.answer(
-            "У вас пока нет объявлений. Нажмите «Разместить объявление».",
-            reply_markup=main_menu_keyboard(),
+            tr(lang, "my_ads_empty", submit=tr(lang, "menu_submit")),
+            reply_markup=main_menu_keyboard(lang),
         )
         return
 
     await message.answer(
-        "Ваши недавние объявления\n\n"
-        "Ниже — по одному сообщению на объявление; кнопки только там, где можно действовать.",
-        reply_markup=main_menu_keyboard(),
+        tr(lang, "my_ads_intro"),
+        reply_markup=main_menu_keyboard(lang),
     )
     for ad in ads:
-        text = _ad_summary_line(ad)
-        kb = _owner_actions_keyboard(ad)
+        text = _ad_summary_line(lang, ad)
+        kb = _owner_actions_keyboard(lang, ad)
         if kb is not None:
             await message.answer(text, reply_markup=kb.as_markup())
         else:
@@ -98,6 +101,7 @@ async def open_my_ads(message: Message, state: FSMContext, db: Database) -> None
 @router.callback_query(F.data.startswith("myad:"))
 async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
     uid = cq.from_user.id
+    lang = normalize_locale(await db.get_user_lang(uid))
     parts = cq.data.split(":")
     if len(parts) != 3 or parts[0] != "myad":
         await cq.answer()
@@ -126,8 +130,8 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         except Exception:
             pass
         await cq.message.answer(
-            f"Объявление #{ad_id} отмечено как доставленное. Пост в канале снят (если бот мог его удалить).",
-            reply_markup=main_menu_keyboard(),
+            tr(lang, "myad_done_delivered", id=ad_id),
+            reply_markup=main_menu_keyboard(lang),
         )
         return
 
@@ -144,11 +148,11 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         except Exception:
             pass
         note = (
-            f"Объявление #{ad_id} снято."
+            tr(lang, "myad_done_withdraw_pending", id=ad_id)
             if ad.status == "pending"
-            else f"Объявление #{ad_id} снято; пост в канале удалён (если возможно)."
+            else tr(lang, "myad_done_withdraw_channel", id=ad_id)
         )
-        await cq.message.answer(note, reply_markup=main_menu_keyboard())
+        await cq.message.answer(note, reply_markup=main_menu_keyboard(lang))
         return
 
     await cq.answer()

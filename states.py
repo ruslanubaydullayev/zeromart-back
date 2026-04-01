@@ -7,6 +7,7 @@ class SellerFlow(StatesGroup):
     wait_phone = State()
     wait_media = State()
     wait_title = State()
+    wait_category = State()
     wait_region = State()
     wait_rayon = State()
     wait_comment = State()

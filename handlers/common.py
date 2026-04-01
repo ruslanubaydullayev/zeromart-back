@@ -3,11 +3,12 @@
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database
-from keyboards import contact_keyboard, main_menu_keyboard
+from keyboards import contact_keyboard, language_choose_keyboard, main_menu_keyboard
+from language import normalize_locale, tr
 from states import SellerFlow
 
 router = Router(name="common")
@@ -19,27 +20,79 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
     uid = message.from_user.id
     username = message.from_user.username
     name = message.from_user.full_name
-    await db.upsert_user(uid, phone=None, username=username, display_name=name)
+    await db.upsert_user(uid, phone=None, lang=None, username=username, display_name=name)
 
     if uid in settings.admin_ids:
         await message.answer(
-            "Вы администратор. Новые объявления приходят сюда с кнопками "
-            "<b>Одобрить</b> / <b>Отклонить</b>."
+            tr("ru", "admin_welcome"),
+            parse_mode="HTML",
+        )
+        return
+
+    lang = normalize_locale(await db.get_user_lang(uid))
+    if not await db.get_user_lang(uid):
+        await message.answer(
+            tr("ru", "start_choose_language"),
+            reply_markup=language_choose_keyboard(),
         )
         return
 
     if await db.user_has_phone(uid):
         await message.answer(
-            "С возвращением! Номер сохранён — кнопка «Поделиться телефоном» больше не нужна.\n"
-            "В меню: <b>Разместить объявление</b> и <b>Мои объявления</b>.",
-            reply_markup=main_menu_keyboard(),
+            tr(
+                lang,
+                "welcome_return",
+                submit=tr(lang, "menu_submit"),
+                my_ads=tr(lang, "menu_my_ads"),
+            ),
+            reply_markup=main_menu_keyboard(lang),
             parse_mode="HTML",
         )
         return
 
     await message.answer(
-        "Добро пожаловать в маркетплейс. Чтобы подать объявление, поделитесь номером телефона.",
-        reply_markup=contact_keyboard(),
+        tr(lang, "welcome_share_phone"),
+        reply_markup=contact_keyboard(lang),
+    )
+    await state.set_state(SellerFlow.wait_phone)
+
+
+@router.callback_query(lambda cq: cq.data and cq.data.startswith("lang:set:"))
+async def set_language(cq: CallbackQuery, state: FSMContext, db: Database) -> None:
+    parts = (cq.data or "").split(":")
+    if len(parts) != 3:
+        await cq.answer()
+        return
+    lang = normalize_locale(parts[2])
+    uid = cq.from_user.id
+    await db.upsert_user(uid, phone=None, lang=lang, username=cq.from_user.username, display_name=cq.from_user.full_name)
+    await state.clear()
+    await cq.answer()
+    try:
+        await cq.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if uid in settings.admin_ids:
+        await cq.message.answer(tr("ru", "admin_welcome"), parse_mode="HTML")
+        return
+
+    if await db.user_has_phone(uid):
+        await cq.message.answer(
+            tr(
+                lang,
+                "welcome_return",
+                submit=tr(lang, "menu_submit"),
+                my_ads=tr(lang, "menu_my_ads"),
+            ),
+            reply_markup=main_menu_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return
+
+    await cq.message.answer(
+        tr(lang, "welcome_share_phone"),
+        reply_markup=contact_keyboard(lang),
     )
     await state.set_state(SellerFlow.wait_phone)
 
@@ -48,14 +101,16 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
 async def cmd_cancel(message: Message, state: FSMContext, db: Database) -> None:
     current = await state.get_state()
     if current is None:
-        await message.answer("Сейчас нет активного сценария.")
+        lang = normalize_locale(await db.get_user_lang(message.from_user.id))
+        await message.answer(tr(lang, "cmd_cancel_none"))
         return
     await state.clear()
     uid = message.from_user.id
     if uid not in settings.admin_ids and await db.user_has_phone(uid):
+        lang = normalize_locale(await db.get_user_lang(uid))
         await message.answer(
-            "Сценарий сброшен. Дальше — кнопки в меню.",
-            reply_markup=main_menu_keyboard(),
+            tr(lang, "cmd_cancel_done_menu"),
+            reply_markup=main_menu_keyboard(lang),
         )
         return
-    await message.answer("Сценарий сброшен. Нажмите /start.")
+    await message.answer(tr("ru", "cmd_cancel_done_start"))

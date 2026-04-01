@@ -1,79 +1,114 @@
-"""Reply and inline keyboards."""
+"""Reply and inline keyboards (localized)."""
+
+from __future__ import annotations
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-# Главное меню продавца (тексты должны совпадать везде)
-SUBMIT_AD_TEXT = "Разместить объявление"
-MY_ADS_TEXT = "Мои объявления"
-
-# Reply-клавиша на шаге медиа (под полем ввода)
-NEXT_STEP_TEXT = "Дальше"
-
-# Навигация мастера (тексты фиксированы)
-WIZARD_BACK_TEXT = "◀️ Назад"
-WIZARD_HOME_TEXT = "🏠 Главная"
-REG_PHONE_REPLY_TEXT = "📱 Номер из регистрации"
+from language import CATEGORY_SLUGS, DISTRICT_SLUGS, tr
 
 
-def wizard_nav_reply_keyboard() -> ReplyKeyboardMarkup:
+def wizard_nav_reply_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(
-        KeyboardButton(text=WIZARD_BACK_TEXT),
-        KeyboardButton(text=WIZARD_HOME_TEXT),
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
     )
     return builder.as_markup(resize_keyboard=True)
 
 
-def wizard_media_reply_keyboard() -> ReplyKeyboardMarkup:
+def wizard_media_reply_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
-    builder.row(KeyboardButton(text=NEXT_STEP_TEXT))
+    builder.row(KeyboardButton(text=tr(locale, "next")))
     builder.row(
-        KeyboardButton(text=WIZARD_BACK_TEXT),
-        KeyboardButton(text=WIZARD_HOME_TEXT),
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
     )
     return builder.as_markup(resize_keyboard=True)
 
 
-def wizard_phone_reply_keyboard(*, with_registered: bool) -> ReplyKeyboardMarkup:
+def wizard_phone_reply_keyboard(locale: str | None, *, with_registered: bool) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     if with_registered:
-        builder.row(KeyboardButton(text=REG_PHONE_REPLY_TEXT))
+        builder.row(KeyboardButton(text=tr(locale, "reg_phone")))
     builder.row(
-        KeyboardButton(text=WIZARD_BACK_TEXT),
-        KeyboardButton(text=WIZARD_HOME_TEXT),
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
     )
     return builder.as_markup(resize_keyboard=True)
 
 
-def main_menu_keyboard() -> ReplyKeyboardMarkup:
+def main_menu_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text=SUBMIT_AD_TEXT))
-    builder.add(KeyboardButton(text=MY_ADS_TEXT))
+    builder.add(KeyboardButton(text=tr(locale, "menu_submit")))
+    builder.add(KeyboardButton(text=tr(locale, "menu_my_ads")))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True)
 
 
-def contact_keyboard() -> ReplyKeyboardMarkup:
+def contact_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="Поделиться телефоном", request_contact=True))
+    builder.add(KeyboardButton(text=tr(locale, "share_contact"), request_contact=True))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
+
+def language_choose_keyboard() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.row(
+        InlineKeyboardButton(text=tr("ru", "lang_button_ru"), callback_data="lang:set:ru"),
+        InlineKeyboardButton(text=tr("uz", "lang_button_uz"), callback_data="lang:set:uz"),
+    )
+    return b.as_markup()
+
+
+def category_reply_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    for slug in CATEGORY_SLUGS:
+        builder.add(KeyboardButton(text=tr(locale, f"cat_{slug}")))
+    builder.adjust(2)
+    builder.row(
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
+    )
+    return builder.as_markup(resize_keyboard=True)
+
+
+def region_reply_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.row(KeyboardButton(text=tr(locale, "region_tashkent")))
+    builder.row(
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
+    )
+    return builder.as_markup(resize_keyboard=True)
+
+
+def rayon_tashkent_reply_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    for slug in DISTRICT_SLUGS:
+        builder.add(KeyboardButton(text=tr(locale, f"district_{slug}")))
+    builder.adjust(2)
+    builder.row(
+        KeyboardButton(text=tr(locale, "back")),
+        KeyboardButton(text=tr(locale, "home")),
+    )
+    return builder.as_markup(resize_keyboard=True)
 
 
 def remove_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
 
 
-def confirm_ad_keyboard() -> InlineKeyboardMarkup:
+def confirm_ad_keyboard(locale: str | None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="Отправить", callback_data="ad:confirm"),
-        InlineKeyboardButton(text="Отмена", callback_data="ad:cancel"),
+        InlineKeyboardButton(text=tr(locale, "confirm_send"), callback_data="ad:confirm"),
+        InlineKeyboardButton(text=tr(locale, "confirm_cancel"), callback_data="ad:cancel"),
     )
     builder.row(
-        InlineKeyboardButton(text=WIZARD_BACK_TEXT, callback_data="wiz:back"),
-        InlineKeyboardButton(text=WIZARD_HOME_TEXT, callback_data="wiz:home"),
+        InlineKeyboardButton(text=tr(locale, "back"), callback_data="wiz:back"),
+        InlineKeyboardButton(text=tr(locale, "home"), callback_data="wiz:home"),
     )
     return builder.as_markup()
 

@@ -40,6 +40,7 @@ async def try_delete_ad_from_channel(bot: Bot, chat_id: str | int, ad: AdRecord)
 
 def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:
     body = build_channel_caption(
+        ad.category,
         ad.title,
         ad.region,
         ad.rayon,

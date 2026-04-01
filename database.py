@@ -11,6 +11,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
     phone TEXT,
+    lang TEXT,
     username TEXT,
     display_name TEXT,
     created_at REAL NOT NULL
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS ads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    category TEXT NOT NULL DEFAULT 'electronics',
     title TEXT NOT NULL,
     region TEXT NOT NULL,
     rayon TEXT NOT NULL,
@@ -57,6 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_ads_status ON ads(status);
 class AdRecord:
     id: int
     user_id: int
+    category: str
     title: str
     region: str
     rayon: str
@@ -83,11 +86,19 @@ class Database:
         async with aiosqlite.connect(self._path) as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.executescript(SCHEMA)
+            cur_u = await db.execute("PRAGMA table_info(users)")
+            ucols = {row[1] for row in await cur_u.fetchall()}
+            if "lang" not in ucols:
+                await db.execute("ALTER TABLE users ADD COLUMN lang TEXT")
             cur = await db.execute("PRAGMA table_info(ads)")
             cols = {row[1] for row in await cur.fetchall()}
             if "channel_message_ids" not in cols:
                 await db.execute(
                     "ALTER TABLE ads ADD COLUMN channel_message_ids TEXT"
+                )
+            if "category" not in cols:
+                await db.execute(
+                    "ALTER TABLE ads ADD COLUMN category TEXT NOT NULL DEFAULT 'electronics'"
                 )
             await db.commit()
 
@@ -99,6 +110,7 @@ class Database:
         self,
         user_id: int,
         phone: str | None,
+        lang: str | None,
         username: str | None,
         display_name: str | None,
     ) -> None:
@@ -107,16 +119,30 @@ class Database:
             await self._prepare(db)
             await db.execute(
                 """
-                INSERT INTO users (user_id, phone, username, display_name, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (user_id, phone, lang, username, display_name, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     phone = COALESCE(excluded.phone, users.phone),
+                    lang = COALESCE(excluded.lang, users.lang),
                     username = COALESCE(excluded.username, users.username),
                     display_name = COALESCE(excluded.display_name, users.display_name)
                 """,
-                (user_id, phone, username, display_name, now),
+                (user_id, phone, lang, username, display_name, now),
             )
             await db.commit()
+
+    async def get_user_lang(self, user_id: int) -> str | None:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            cur = await db.execute(
+                "SELECT lang FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            if not row or row[0] is None:
+                return None
+            s = str(row[0]).strip()
+            return s or None
 
     async def user_has_phone(self, user_id: int) -> bool:
         async with aiosqlite.connect(self._path) as db:
@@ -159,6 +185,7 @@ class Database:
     async def create_ad(
         self,
         user_id: int,
+        category: str,
         title: str,
         region: str,
         rayon: str,
@@ -171,10 +198,10 @@ class Database:
             await self._prepare(db)
             cur = await db.execute(
                 """
-                INSERT INTO ads (user_id, title, region, rayon, comment, phone, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                INSERT INTO ads (user_id, category, title, region, rayon, comment, phone, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
                 """,
-                (user_id, title, region, rayon, comment, phone, now),
+                (user_id, category, title, region, rayon, comment, phone, now),
             )
             ad_id = cur.lastrowid
             for item in media:
@@ -194,7 +221,7 @@ class Database:
             db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 """
-                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at,
+                SELECT id, user_id, category, title, region, rayon, comment, phone, status, created_at,
                        channel_message_id, channel_message_ids
                 FROM ads WHERE id = ?
                 """,
@@ -206,6 +233,7 @@ class Database:
             return AdRecord(
                 id=row["id"],
                 user_id=row["user_id"],
+                category=row["category"],
                 title=row["title"],
                 region=row["region"],
                 rayon=row["rayon"],
@@ -280,7 +308,7 @@ class Database:
             db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 """
-                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at,
+                SELECT id, user_id, category, title, region, rayon, comment, phone, status, created_at,
                        channel_message_id, channel_message_ids
                 FROM ads WHERE user_id = ?
                 ORDER BY created_at DESC
@@ -295,6 +323,7 @@ class Database:
                     AdRecord(
                         id=row["id"],
                         user_id=row["user_id"],
+                        category=row["category"],
                         title=row["title"],
                         region=row["region"],
                         rayon=row["rayon"],
