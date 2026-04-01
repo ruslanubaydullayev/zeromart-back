@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS ads (
     status TEXT NOT NULL DEFAULT 'pending',
     created_at REAL NOT NULL,
     channel_message_id INTEGER,
+    channel_message_ids TEXT,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
@@ -64,6 +65,7 @@ class AdRecord:
     status: str
     created_at: float
     channel_message_id: int | None
+    channel_message_ids: str | None = None  # JSON: [msg_id, ...] весь пост в канале (альбом)
 
 
 @dataclass
@@ -81,6 +83,12 @@ class Database:
         async with aiosqlite.connect(self._path) as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.executescript(SCHEMA)
+            cur = await db.execute("PRAGMA table_info(ads)")
+            cols = {row[1] for row in await cur.fetchall()}
+            if "channel_message_ids" not in cols:
+                await db.execute(
+                    "ALTER TABLE ads ADD COLUMN channel_message_ids TEXT"
+                )
             await db.commit()
 
     @staticmethod
@@ -186,7 +194,8 @@ class Database:
             db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 """
-                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at, channel_message_id
+                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at,
+                       channel_message_id, channel_message_ids
                 FROM ads WHERE id = ?
                 """,
                 (ad_id,),
@@ -205,6 +214,7 @@ class Database:
                 status=row["status"],
                 created_at=row["created_at"],
                 channel_message_id=row["channel_message_id"],
+                channel_message_ids=row["channel_message_ids"],
             )
 
     async def get_ad_media(self, ad_id: int) -> list[MediaItem]:
@@ -225,10 +235,19 @@ class Database:
         ad_id: int,
         status: str,
         channel_message_id: int | None = None,
+        channel_message_ids_json: str | None = None,
     ) -> None:
         async with aiosqlite.connect(self._path) as db:
             await self._prepare(db)
-            if channel_message_id is not None:
+            if channel_message_ids_json is not None:
+                await db.execute(
+                    """
+                    UPDATE ads SET status = ?, channel_message_id = ?, channel_message_ids = ?
+                    WHERE id = ?
+                    """,
+                    (status, channel_message_id, channel_message_ids_json, ad_id),
+                )
+            elif channel_message_id is not None:
                 await db.execute(
                     """
                     UPDATE ads SET status = ?, channel_message_id = ? WHERE id = ?
@@ -261,7 +280,8 @@ class Database:
             db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 """
-                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at, channel_message_id
+                SELECT id, user_id, title, region, rayon, comment, phone, status, created_at,
+                       channel_message_id, channel_message_ids
                 FROM ads WHERE user_id = ?
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -283,6 +303,7 @@ class Database:
                         status=row["status"],
                         created_at=row["created_at"],
                         channel_message_id=row["channel_message_id"],
+                        channel_message_ids=row["channel_message_ids"],
                     )
                 )
             return out

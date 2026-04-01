@@ -1,6 +1,7 @@
 """Admin moderation: approve, reject with reason."""
 
 import html
+import json
 import logging
 
 from aiogram import Bot, F, Router
@@ -108,8 +109,15 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         await cq.answer(_publish_error_hint(e), show_alert=True)
         return
 
-    first_id = msgs[0].message_id if msgs else None
-    await db.set_ad_status(ad_id, "approved", channel_message_id=first_id)
+    ids = [m.message_id for m in msgs]
+    first_id = ids[0] if ids else None
+    ids_json = json.dumps(ids) if ids else None
+    await db.set_ad_status(
+        ad_id,
+        "approved",
+        channel_message_id=first_id,
+        channel_message_ids_json=ids_json,
+    )
     await bot.send_message(
         ad.user_id,
         "Ваше объявление одобрено и опубликовано в канале.",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from aiogram import Bot
@@ -15,14 +16,26 @@ from formatting import build_channel_caption
 logger = logging.getLogger(__name__)
 
 
-async def try_delete_channel_post(bot: Bot, chat_id: str | int, message_id: int | None) -> None:
-    """Удаляет пост в канале (если был альбом, в БД обычно только id первого сообщения)."""
-    if message_id is None or chat_id is None or chat_id == "":
+async def try_delete_ad_from_channel(bot: Bot, chat_id: str | int, ad: AdRecord) -> None:
+    """Удаляет все сообщения поста в канале (альбом = несколько message_id)."""
+    if chat_id is None or chat_id == "":
         return
-    try:
-        await bot.delete_message(chat_id, message_id)
-    except TelegramAPIError as e:
-        logger.warning("Не удалось удалить сообщение %s в канале: %s", message_id, e)
+    ids: list[int] = []
+    raw = ad.channel_message_ids
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                ids = [int(x) for x in parsed if x is not None]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            ids = []
+    if not ids and ad.channel_message_id is not None:
+        ids = [ad.channel_message_id]
+    for mid in ids:
+        try:
+            await bot.delete_message(chat_id, mid)
+        except TelegramAPIError as e:
+            logger.warning("Не удалить сообщение %s в канале: %s", mid, e)
 
 
 def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:

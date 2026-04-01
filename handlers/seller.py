@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 from aiogram import Bot, F, Router
@@ -28,14 +29,14 @@ router = Router(name="seller")
 
 MIN_TITLE_LEN = 3
 MAX_TITLE = 120
-MIN_REGION_LEN = 2
-MAX_REGION = 80
-MIN_RAYON_LEN = 2
-MAX_RAYON = 80
-MIN_COMMENT_LEN = 4  # «более 3 символов»
+MIN_REGION_LEN = 3
+MAX_REGION = 50
+MIN_RAYON_LEN = 3
+MAX_RAYON = 50
+MIN_COMMENT_LEN = 4  # «более 4 символов»
 MAX_COMMENT = 1500
-MIN_PHONE_LEN = 5
-MAX_PHONE = 40
+# Телефон в объявлении: только +998 и 9 цифр (пример +998901234567)
+AD_PHONE_UZ = re.compile(r"^\+998[0-9]{9}$")
 MAX_LISTING_PHOTOS = 3
 
 LISTING_MEDIA_INTRO = (
@@ -251,19 +252,20 @@ async def seller_comment(message: Message, state: FSMContext, db: Database) -> N
     await state.set_state(SellerFlow.wait_ad_phone)
     hint = await db.get_user_phone(message.from_user.id) or ""
     extra = f"\n(ваш номер при регистрации: {hint})" if hint else ""
-    await message.answer(f"Телефон для связи по объявлению:{extra}")
+    await message.answer(
+        f"Телефон для связи по объявлению (строго <code>+998901234567</code> — плюс, 998 и 9 цифр):{extra}",
+        parse_mode=ParseMode.HTML,
+    )
 
 
 @router.message(SellerFlow.wait_ad_phone, F.text)
 async def seller_ad_phone(message: Message, state: FSMContext) -> None:
-    phone = message.text.strip()
-    if len(phone) < MIN_PHONE_LEN:
+    phone = message.text.strip().replace(" ", "")
+    if not AD_PHONE_UZ.fullmatch(phone):
         await message.answer(
-            f"Телефон для связи: укажите не менее {MIN_PHONE_LEN} символов."
+            "Номер только в формате <code>+998901234567</code>: плюс, 998, затем 9 цифр без пробелов.",
+            parse_mode=ParseMode.HTML,
         )
-        return
-    if len(phone) > MAX_PHONE:
-        await message.answer(f"Телефон: не более {MAX_PHONE} символов.")
         return
     await state.update_data(ad_phone=phone)
     await state.set_state(SellerFlow.wait_confirm)

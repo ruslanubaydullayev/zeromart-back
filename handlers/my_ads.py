@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 from datetime import datetime
 
 from aiogram import Bot, F, Router
@@ -13,7 +12,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import settings
 from database import AdRecord, Database
 from keyboards import MY_ADS_TEXT, main_menu_keyboard
-from posting import try_delete_channel_post
+from posting import try_delete_ad_from_channel
 
 router = Router(name="my_ads")
 
@@ -30,9 +29,11 @@ def _status_ru(status: str) -> str:
 
 def _ad_summary_line(ad: AdRecord) -> str:
     ts = datetime.fromtimestamp(ad.created_at).strftime("%d.%m.%Y %H:%M")
-    title = html.escape(ad.title[:80] + ("…" if len(ad.title) > 80 else ""))
-    st = html.escape(_status_ru(ad.status))
-    return f"#{ad.id} · <b>{title}</b>\n<i>{st}</i> · {ts}"
+    title = ad.title.replace("\n", " ").strip()
+    if len(title) > 80:
+        title = title[:80] + "…"
+    st = _status_ru(ad.status)
+    return f"#{ad.id} · {title}\n{st} · {ts}"
 
 
 def _owner_actions_keyboard(ad: AdRecord) -> InlineKeyboardBuilder | None:
@@ -81,7 +82,7 @@ async def open_my_ads(message: Message, state: FSMContext, db: Database) -> None
         return
 
     await message.answer(
-        "<b>Ваши недавние объявления</b>\n"
+        "Ваши недавние объявления\n\n"
         "Ниже — по одному сообщению на объявление; кнопки только там, где можно действовать.",
         reply_markup=main_menu_keyboard(),
     )
@@ -117,8 +118,8 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if ad.status != "approved":
             await cq.answer("Действие недоступно для этого статуса.", show_alert=True)
             return
+        await try_delete_ad_from_channel(bot, settings.channel_id, ad)
         await db.set_ad_status(ad_id, "delivered")
-        await try_delete_channel_post(bot, settings.channel_id, ad.channel_message_id)
         await cq.answer("Отмечено: доставлено")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
@@ -134,9 +135,9 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if ad.status not in ("pending", "approved"):
             await cq.answer("Уже закрыто.", show_alert=True)
             return
+        if ad.status == "approved":
+            await try_delete_ad_from_channel(bot, settings.channel_id, ad)
         await db.set_ad_status(ad_id, "withdrawn")
-        if ad.status == "approved" and ad.channel_message_id:
-            await try_delete_channel_post(bot, settings.channel_id, ad.channel_message_id)
         await cq.answer("Снято с продажи")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
