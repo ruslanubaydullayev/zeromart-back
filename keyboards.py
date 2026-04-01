@@ -10,6 +10,41 @@ MY_ADS_TEXT = "Мои объявления"
 # Reply-клавиша на шаге медиа (под полем ввода)
 NEXT_STEP_TEXT = "Дальше"
 
+# Навигация мастера (тексты фиксированы)
+WIZARD_BACK_TEXT = "◀️ Назад"
+WIZARD_HOME_TEXT = "🏠 Главная"
+REG_PHONE_REPLY_TEXT = "📱 Номер из регистрации"
+
+
+def wizard_nav_reply_keyboard() -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.row(
+        KeyboardButton(text=WIZARD_BACK_TEXT),
+        KeyboardButton(text=WIZARD_HOME_TEXT),
+    )
+    return builder.as_markup(resize_keyboard=True)
+
+
+def wizard_media_reply_keyboard() -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.row(KeyboardButton(text=NEXT_STEP_TEXT))
+    builder.row(
+        KeyboardButton(text=WIZARD_BACK_TEXT),
+        KeyboardButton(text=WIZARD_HOME_TEXT),
+    )
+    return builder.as_markup(resize_keyboard=True)
+
+
+def wizard_phone_reply_keyboard(*, with_registered: bool) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    if with_registered:
+        builder.row(KeyboardButton(text=REG_PHONE_REPLY_TEXT))
+    builder.row(
+        KeyboardButton(text=WIZARD_BACK_TEXT),
+        KeyboardButton(text=WIZARD_HOME_TEXT),
+    )
+    return builder.as_markup(resize_keyboard=True)
+
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
@@ -30,29 +65,15 @@ def remove_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
 
 
-def media_next_reply_keyboard() -> ReplyKeyboardMarkup:
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text=NEXT_STEP_TEXT))
-    builder.adjust(1)
-    return builder.as_markup(resize_keyboard=True)
-
-
-def use_registered_phone_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(
-            text="📱 Номер из регистрации",
-            callback_data="ad_phone:reg",
-        )
-    )
-    return builder.as_markup()
-
-
 def confirm_ad_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="Отправить", callback_data="ad:confirm"),
         InlineKeyboardButton(text="Отмена", callback_data="ad:cancel"),
+    )
+    builder.row(
+        InlineKeyboardButton(text=WIZARD_BACK_TEXT, callback_data="wiz:back"),
+        InlineKeyboardButton(text=WIZARD_HOME_TEXT, callback_data="wiz:home"),
     )
     return builder.as_markup()
 
