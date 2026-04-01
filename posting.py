@@ -38,6 +38,43 @@ async def try_delete_ad_from_channel(bot: Bot, chat_id: str | int, ad: AdRecord)
             logger.warning("Не удалить сообщение %s в канале: %s", mid, e)
 
 
+def _channel_message_ids(ad: AdRecord) -> list[int]:
+    ids: list[int] = []
+    raw = ad.channel_message_ids
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                ids = [int(x) for x in parsed if x is not None]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            ids = []
+    if not ids and ad.channel_message_id is not None:
+        ids = [ad.channel_message_id]
+    return ids
+
+
+async def mark_ad_as_found_owner(
+    bot: Bot,
+    chat_id: str | int,
+    ad: AdRecord,
+    *,
+    marker_text: str = "Нашел свой владелец",
+) -> None:
+    """Posts a sold marker in channel, replying to ad message when possible."""
+    if chat_id is None or chat_id == "":
+        return
+    ids = _channel_message_ids(ad)
+    reply_id = ids[0] if ids else None
+    try:
+        await bot.send_message(chat_id, marker_text, reply_to_message_id=reply_id)
+    except TelegramAPIError:
+        # Fallback if reply target is unavailable.
+        try:
+            await bot.send_message(chat_id, marker_text)
+        except TelegramAPIError as e:
+            logger.warning("Не удалось отправить маркер продажи ad=%s: %s", ad.id, e)
+
+
 def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:
     body = build_channel_caption(
         ad.category,

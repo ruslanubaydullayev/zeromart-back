@@ -13,7 +13,7 @@ from config import settings
 from database import AdRecord, Database
 from keyboards import main_menu_keyboard
 from language import all_variant_texts, normalize_locale, tr
-from posting import try_delete_ad_from_channel
+from posting import mark_ad_as_found_owner, try_delete_ad_from_channel
 
 router = Router(name="my_ads")
 
@@ -122,7 +122,7 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if ad.status != "approved":
             await cq.answer("Действие недоступно для этого статуса.", show_alert=True)
             return
-        await try_delete_ad_from_channel(bot, settings.channel_id, ad)
+        await mark_ad_as_found_owner(bot, settings.channel_id, ad)
         await db.set_ad_status(ad_id, "delivered")
         await cq.answer("Отмечено: доставлено")
         try:
