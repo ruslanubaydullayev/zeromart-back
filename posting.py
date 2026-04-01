@@ -60,19 +60,33 @@ async def mark_ad_as_found_owner(
     *,
     marker_text: str = "Нашел свой владелец",
 ) -> None:
-    """Posts a sold marker in channel, replying to ad message when possible."""
+    """Adds sold marker to the existing channel ad message."""
     if chat_id is None or chat_id == "":
         return
     ids = _channel_message_ids(ad)
-    reply_id = ids[0] if ids else None
+    if not ids:
+        return
+    msg_id = ids[0]
+    marker_line = f"✅ {marker_text}"
+    base_caption = _truncate_caption(_caption_for_ad(ad))
+    updated_caption = _truncate_caption(f"{base_caption}\n\n{marker_line}")
     try:
-        await bot.send_message(chat_id, marker_text, reply_to_message_id=reply_id)
+        await bot.edit_message_caption(
+            chat_id=chat_id,
+            message_id=msg_id,
+            caption=updated_caption,
+            parse_mode=ParseMode.HTML,
+        )
     except TelegramAPIError:
-        # Fallback if reply target is unavailable.
         try:
-            await bot.send_message(chat_id, marker_text)
+            await bot.edit_message_text(
+                text=updated_caption,
+                chat_id=chat_id,
+                message_id=msg_id,
+                parse_mode=ParseMode.HTML,
+            )
         except TelegramAPIError as e:
-            logger.warning("Не удалось отправить маркер продажи ad=%s: %s", ad.id, e)
+            logger.warning("Не удалось пометить продажу в сообщении ad=%s: %s", ad.id, e)
 
 
 def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:
