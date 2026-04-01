@@ -42,6 +42,7 @@ def main_menu_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text=tr(locale, "menu_submit")))
     builder.add(KeyboardButton(text=tr(locale, "menu_my_ads")))
+    builder.add(KeyboardButton(text=tr(locale, "menu_change_language")))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True)
 

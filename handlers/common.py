@@ -1,5 +1,6 @@
 """Shared commands: /start, /cancel."""
 
+from aiogram import F
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -8,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from config import settings
 from database import Database
 from keyboards import contact_keyboard, language_choose_keyboard, main_menu_keyboard
-from language import normalize_locale, tr
+from language import all_variant_texts, normalize_locale, tr
 from states import SellerFlow
 
 router = Router(name="common")
@@ -95,6 +96,16 @@ async def set_language(cq: CallbackQuery, state: FSMContext, db: Database) -> No
         reply_markup=contact_keyboard(lang),
     )
     await state.set_state(SellerFlow.wait_phone)
+
+
+@router.message(F.text.in_(all_variant_texts("menu_change_language")))
+async def change_language_from_menu(message: Message, state: FSMContext, db: Database) -> None:
+    await state.clear()
+    lang = normalize_locale(await db.get_user_lang(message.from_user.id))
+    await message.answer(
+        tr(lang, "start_choose_language"),
+        reply_markup=language_choose_keyboard(),
+    )
 
 
 @router.message(Command("cancel"))
