@@ -22,7 +22,7 @@ CATEGORY_SLUGS: tuple[str, ...] = (
     "other",
 )
 
-REGION_TASHKENT = "Tashkent"
+REGION_TASHKENT = "Toshkent"
 
 DISTRICT_SLUGS: tuple[str, ...] = (
     "olmazor",

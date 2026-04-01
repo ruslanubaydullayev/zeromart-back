@@ -27,6 +27,10 @@ async def wizard_replace_prompt(
     """Удаляет старый prompt бота, опционально сообщение пользователя, шлёт новый prompt."""
     bot = message.bot
     chat_id = message.chat.id
+    try:
+        await bot.send_chat_action(chat_id, "typing")
+    except Exception:
+        pass
     data = await state.get_data()
     old_id = data.get(WIZARD_PROMPT_KEY)
     await _safe_delete(bot, chat_id, old_id)

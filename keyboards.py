@@ -121,3 +121,12 @@ def admin_moderate_keyboard(ad_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="Отклонить", callback_data=f"mod:reject:{ad_id}"),
     )
     return builder.as_markup()
+
+
+def admin_reject_options_keyboard(ad_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="С комментарием", callback_data=f"mod:reject_reason:{ad_id}"),
+        InlineKeyboardButton(text="Без комментария", callback_data=f"mod:reject_skip:{ad_id}"),
+    )
+    return builder.as_markup()

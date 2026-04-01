@@ -162,12 +162,38 @@ async def send_ad_media(
             )
         return [msg]
 
-    msgs = await bot.send_media_group(chat_id, media=bundle)
     if reply_markup is not None:
-        tail = await bot.send_message(
-            chat_id,
-            f"#{ad.id} · {ad.title[:80]}",
-            reply_markup=reply_markup,
-        )
-        return [*msgs, tail]
+        first = bundle[0]
+        sent: list[Message] = []
+        if isinstance(first, InputMediaPhoto):
+            primary = await bot.send_photo(
+                chat_id,
+                first.media,
+                caption=first.caption,
+                parse_mode=parse,
+                reply_markup=reply_markup,
+            )
+        else:
+            primary = await bot.send_video(
+                chat_id,
+                first.media,
+                caption=first.caption,
+                parse_mode=parse,
+                reply_markup=reply_markup,
+            )
+        sent.append(primary)
+
+        rest = bundle[1:]
+        if rest:
+            stripped: list[InputMediaPhoto | InputMediaVideo] = []
+            for x in rest:
+                if isinstance(x, InputMediaPhoto):
+                    stripped.append(InputMediaPhoto(media=x.media))
+                else:
+                    stripped.append(InputMediaVideo(media=x.media))
+            more = await bot.send_media_group(chat_id, media=stripped)
+            sent.extend(list(more))
+        return sent
+
+    msgs = await bot.send_media_group(chat_id, media=bundle)
     return list(msgs)

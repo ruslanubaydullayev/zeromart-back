@@ -11,7 +11,7 @@ from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database
-from keyboards import main_menu_keyboard
+from keyboards import admin_reject_options_keyboard, main_menu_keyboard
 from language import normalize_locale, tr
 from posting import send_ad_media
 from states import AdminFlow
@@ -48,16 +48,16 @@ def _admin_ids() -> frozenset[int]:
 
 
 def _parse_mod_callback(data: str) -> tuple[str, int] | None:
-    # mod:approve:12 / mod:reject:12
+    # mod:approve:12 / mod:reject:12 / mod:reject_reason:12 / mod:reject_skip:12
     parts = data.split(":")
-    if len(parts) != 3 or parts[0] != "mod":
+    if len(parts) < 3 or parts[0] != "mod":
         return None
-    action = parts[1]
+    action = parts[1] if len(parts) == 3 else f"{parts[1]}_{parts[2]}"
     try:
-        ad_id = int(parts[2])
+        ad_id = int(parts[-1])
     except ValueError:
         return None
-    if action not in ("approve", "reject"):
+    if action not in ("approve", "reject", "reject_reason", "reject_skip"):
         return None
     return action, ad_id
 
@@ -81,9 +81,33 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
 
     if action == "reject":
         await cq.answer()
+        await cq.message.answer(
+            "Отклонение: выбрать с комментарием или без.",
+            reply_markup=admin_reject_options_keyboard(ad_id),
+        )
+        return
+
+    if action == "reject_reason":
+        await cq.answer()
         await state.set_state(AdminFlow.wait_reject_reason)
         await state.update_data(reject_ad_id=ad_id)
-        await cq.message.answer("Отклонение: отправьте одним сообщением причину для продавца.")
+        await cq.message.answer("Отправьте одним сообщением причину для продавца.")
+        return
+
+    if action == "reject_skip":
+        await cq.answer("Отклонено")
+        await db.set_ad_status(ad_id, "rejected")
+        await db.add_rejection(ad_id, "Без комментария")
+        user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
+        await bot.send_message(
+            ad.user_id,
+            tr(user_lang, "ad_rejected_no_reason"),
+            reply_markup=main_menu_keyboard(user_lang),
+        )
+        try:
+            await cq.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
         return
 
     # approve
@@ -154,10 +178,11 @@ async def admin_reject_reason(message: Message, state: FSMContext, db: Database,
 
     await db.set_ad_status(ad_id, "rejected")
     await db.add_rejection(ad_id, reason)
+    user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
     await bot.send_message(
         ad.user_id,
-        f"Объявление отклонено.\nПричина: {html.escape(reason)}",
-        reply_markup=main_menu_keyboard("ru"),
+        tr(user_lang, "ad_rejected_with_reason", reason=html.escape(reason)),
+        reply_markup=main_menu_keyboard(user_lang),
     )
     await state.clear()
     await message.answer("Отклонение сохранено, продавец уведомлён.")
