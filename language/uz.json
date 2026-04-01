@@ -14,7 +14,7 @@
   "back": "◀️ Orqaga",
   "home": "🏠 Bosh sahifa",
   "reg_phone": "📱 Ro'yxatdan o'tgan raqam",
-  "listing_media_intro": "<b>1 dan 3 gacha foto</b> kerak. <b>Video ixtiyoriy</b> (maks. 1) — istalgan tartibda yuborishingiz mumkin. Maydon ostida — «{next}». Foto tayyor bo'lgach — «{next}» bosing. «{back}» — menyuga chiqish, «{home}» — boshidan (menyu).",
+  "listing_media_intro": "<b>1 dan 3 gacha foto</b> kerak. <b>Video ixtiyoriy</b> (maks. 1)",
   "photos_max": "Allaqachon {max} ta foto. Video ixtiyoriy yoki «{next}» bosing.",
   "photo_ready": "Foto {n}/{max}. Video ixtiyoriy yoki «{next}» bosing.",
   "photo_more_or_next": "Foto {n}/{max}. Yana foto, video (ixtiyoriy) yoki «{next}».",
