@@ -11,7 +11,7 @@
   "admin_stats_month": "1-kundan (joriy oy)",
   "admin_stats_all": "Jami",
   "admin_stats_timezone_note": "«Bugun», «hafta» va «oy» Toshkent vaqti (Asia/Tashkent) bo'yicha.",
-  "welcome_return": "Xush kelibsiz! Menyu: <b>{submit}</b> va <b>{my_ads}</b>.",
+  "welcome_return": "Xush kelibsiz, <b>{name}</b>, kerakli menyuni tanlang.",
   "welcome_share_phone": "Marketpleysga xush kelibsiz. E'lon berish uchun telefon raqamingizni ulashing. Raqam boshqa foydalanuvchilarga ko‘rinmaydi. U faqat ro‘yxatdan o‘tish uchun ishlatiladi va kanal administratsiyasigagina ochiq.",
   "thank_you_phone_saved": "Rahmat, raqam saqlandi.\nMenyu: <b>{submit}</b> va <b>{my_ads}</b>.",
   "phone_required_contact": "Telegramdan raqam kerak — «{share}» tugmasini bosing.",

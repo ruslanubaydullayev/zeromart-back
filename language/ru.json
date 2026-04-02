@@ -11,7 +11,7 @@
   "admin_stats_month": "С 1-го числа (текущий месяц)",
   "admin_stats_all": "Всего",
   "admin_stats_timezone_note": "«Сегодня», «неделя» и «месяц» — по часовому поясу Ташкента (Asia/Tashkent).",
-  "welcome_return": "С возвращением! В меню: <b>{submit}</b> и <b>{my_ads}</b>.",
+  "welcome_return": "С возвращением, <b>{name}</b>! В меню: <b>{submit}</b> и <b>{my_ads}</b>.",
   "welcome_share_phone": "Добро пожаловать в маркетплейс. Чтобы подать объявление, поделитесь номером телефона.",
   "thank_you_phone_saved": "Спасибо, номер сохранён.\nВ меню: <b>{submit}</b> и <b>{my_ads}</b>.",
   "phone_required_contact": "Нужен номер из Telegram — нажмите «{share}».",

@@ -1,10 +1,12 @@
 """Shared commands: /start, /cancel."""
 
+import html
+
 from aiogram import F
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, User
 
 from config import settings
 from database import Database
@@ -13,6 +15,27 @@ from language import all_variant_texts, normalize_locale, tr
 from states import SellerFlow
 
 router = Router(name="common")
+
+
+def _welcome_display_name(user: User | None) -> str:
+    if not user:
+        return html.escape("…")
+    raw = (user.full_name or user.first_name or "").strip()
+    return html.escape(raw) if raw else html.escape("…")
+
+
+def _welcome_return_text(lang: str, user: User | None) -> str:
+    loc = normalize_locale(lang)
+    name = _welcome_display_name(user)
+    if loc == "uz":
+        return tr(loc, "welcome_return", name=name)
+    return tr(
+        loc,
+        "welcome_return",
+        name=name,
+        submit=tr(loc, "menu_submit"),
+        my_ads=tr(loc, "menu_my_ads"),
+    )
 
 
 @router.message(CommandStart())
@@ -42,12 +65,7 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
 
     if await db.user_has_phone(uid):
         await message.answer(
-            tr(
-                lang,
-                "welcome_return",
-                submit=tr(lang, "menu_submit"),
-                my_ads=tr(lang, "menu_my_ads"),
-            ),
+            _welcome_return_text(lang, message.from_user),
             reply_markup=main_menu_keyboard(lang),
             parse_mode="HTML",
         )
@@ -86,12 +104,7 @@ async def set_language(cq: CallbackQuery, state: FSMContext, db: Database) -> No
 
     if await db.user_has_phone(uid):
         await cq.message.answer(
-            tr(
-                lang,
-                "welcome_return",
-                submit=tr(lang, "menu_submit"),
-                my_ads=tr(lang, "menu_my_ads"),
-            ),
+            _welcome_return_text(lang, cq.from_user),
             reply_markup=main_menu_keyboard(lang),
             parse_mode="HTML",
         )
