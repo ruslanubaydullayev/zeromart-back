@@ -101,7 +101,7 @@
   "myad_delivered": "Mahsulot egasini topdi",
   "myad_done_delivered": "#{id} e'lon yetkazilgan deb belgilandi.",
   "myad_done_withdraw_pending": "#{id} e'lon yopildi.",
-  "myad_done_withdraw_channel": "#{id} e'lon yopildi; kanaldagi post olib tashlandi (agar mumkin bo'lsa).",
+  "myad_done_withdraw_channel": "#{id} e'lon yopildi;",
   "cmd_cancel_none": "Faol senariy yo'q.",
   "cmd_cancel_done_menu": "Senariy tozalandi. Keyin — menyu tugmalari.",
   "cmd_cancel_done_start": "Senariy tozalandi. /start bosing."

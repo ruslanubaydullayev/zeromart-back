@@ -58,7 +58,7 @@ async def mark_ad_as_found_owner(
     chat_id: str | int,
     ad: AdRecord,
     *,
-    marker_text: str = "Нашел свой владелец",
+    marker_text: str = "O'z egasini topdi 🎉 | Нашел свой владелец 🎉",
 ) -> None:
     """Adds sold marker to the existing channel ad message."""
     if chat_id is None or chat_id == "":
