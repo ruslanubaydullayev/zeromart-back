@@ -90,6 +90,7 @@
   "ad_sent_moderation": "Moderatsiyaga yuborildi",
   "ad_accepted_check": "E'lon moderator tekshiruviga qabul qilindi.",
   "ad_approved_published": "Sizning e'loningiz tasdiqlandi va kanalda chop etildi.",
+  "ad_approved_view_in_channel": "E'lonni ko'rish",
   "ad_rejected_no_reason": "E'lon moderator tomonidan rad etildi.",
   "ad_rejected_with_reason": "E'lon rad etildi.\nSabab: {reason}",
   "cancel_inline": "Bekor qilindi",

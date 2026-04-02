@@ -44,6 +44,34 @@ def _normalize_channel_id(raw: str) -> str | int:
         return s
 
 
+def channel_post_url(channel_id: str | int, message_id: int) -> str | None:
+    """Public t.me link to a message in the channel (seller / share)."""
+    if message_id is None or channel_id == "" or channel_id is None:
+        return None
+    if isinstance(channel_id, int):
+        s = str(channel_id)
+        if s.startswith("-100"):
+            return f"https://t.me/c/{s[4:]}/{message_id}"
+        return None
+    raw = str(channel_id).strip()
+    if not raw:
+        return None
+    if raw.startswith("@"):
+        raw = raw[1:]
+    if raw.startswith("-100") or (raw.startswith("-") and raw[1:].isdigit()):
+        try:
+            n = int(raw)
+        except ValueError:
+            n = None
+        if n is not None:
+            s = str(n)
+            if s.startswith("-100"):
+                return f"https://t.me/c/{s[4:]}/{message_id}"
+    if raw and not raw.startswith("-"):
+        return f"https://t.me/{raw}/{message_id}"
+    return None
+
+
 def _load_outbound_proxy() -> str | None:
     """PythonAnywhere free tier blocks direct HTTPS; use their proxy (see help.pythonanywhere.com)."""
     for key in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"):

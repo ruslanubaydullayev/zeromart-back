@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from config import settings
+from config import channel_post_url, settings
 from database import Database, stats_period_starts
 from keyboards import admin_menu_keyboard, admin_reject_options_keyboard, main_menu_keyboard
 from language import all_variant_texts, normalize_locale, tr
@@ -181,9 +181,20 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
     )
     ad_updated = await db.get_ad(ad_id)
     user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
+    published_text = tr(user_lang, "ad_approved_published")
+    post_url = (
+        channel_post_url(settings.channel_id, first_id) if first_id is not None else None
+    )
+    if post_url:
+        link_label = html.escape(tr(user_lang, "ad_approved_view_in_channel"))
+        published_text = (
+            f"{published_text}\n\n"
+            f'<a href="{html.escape(post_url, quote=True)}">{link_label}</a>'
+        )
     await bot.send_message(
         ad.user_id,
-        tr(user_lang, "ad_approved_published"),
+        published_text,
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(user_lang),
     )
     await cq.answer("Опубликовано")
