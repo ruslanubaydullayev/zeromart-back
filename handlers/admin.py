@@ -12,8 +12,8 @@ from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database, stats_period_starts
-from keyboards import admin_reject_options_keyboard, main_menu_keyboard
-from language import normalize_locale, tr
+from keyboards import admin_menu_keyboard, admin_reject_options_keyboard, main_menu_keyboard
+from language import all_variant_texts, normalize_locale, tr
 from posting import send_ad_media, sync_moderation_post_caption
 from states import AdminFlow
 
@@ -63,8 +63,7 @@ def _parse_mod_callback(data: str) -> tuple[str, int] | None:
     return action, ad_id
 
 
-@router.message(Command("stats"))
-async def cmd_admin_stats(message: Message, db: Database) -> None:
+async def _send_admin_stats(message: Message, db: Database) -> None:
     if message.from_user.id not in _admin_ids():
         return
     lang = normalize_locale(await db.get_user_lang(message.from_user.id))
@@ -81,7 +80,21 @@ async def cmd_admin_stats(message: Message, db: Database) -> None:
         f"{tr(lang, 'admin_stats_line', label=tr(lang, 'admin_stats_all'), count=all_c)}\n\n"
         f"<i>{tr(lang, 'admin_stats_timezone_note')}</i>"
     )
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=admin_menu_keyboard(lang),
+    )
+
+
+@router.message(Command("stats"))
+async def cmd_admin_stats(message: Message, db: Database) -> None:
+    await _send_admin_stats(message, db)
+
+
+@router.message(F.text.in_(all_variant_texts("menu_admin_stats")))
+async def admin_stats_button(message: Message, db: Database) -> None:
+    await _send_admin_stats(message, db)
 
 
 @router.callback_query(F.data.startswith("mod:"))

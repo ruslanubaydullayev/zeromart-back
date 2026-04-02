@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, Message
 
 from config import settings
 from database import Database
-from keyboards import contact_keyboard, language_choose_keyboard, main_menu_keyboard
+from keyboards import admin_menu_keyboard, contact_keyboard, language_choose_keyboard, main_menu_keyboard
 from language import all_variant_texts, normalize_locale, tr
 from states import SellerFlow
 
@@ -28,6 +28,7 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
         await message.answer(
             tr(alang, "admin_welcome"),
             parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(alang),
         )
         return
 
@@ -79,6 +80,7 @@ async def set_language(cq: CallbackQuery, state: FSMContext, db: Database) -> No
         await cq.message.answer(
             tr(lang, "admin_welcome"),
             parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(lang),
         )
         return
 
@@ -117,11 +119,24 @@ async def cmd_cancel(message: Message, state: FSMContext, db: Database) -> None:
     current = await state.get_state()
     if current is None:
         lang = normalize_locale(await db.get_user_lang(message.from_user.id))
+        if message.from_user.id in settings.admin_ids:
+            await message.answer(
+                tr(lang, "cmd_cancel_none"),
+                reply_markup=admin_menu_keyboard(lang),
+            )
+            return
         await message.answer(tr(lang, "cmd_cancel_none"))
         return
     await state.clear()
     uid = message.from_user.id
-    if uid not in settings.admin_ids and await db.user_has_phone(uid):
+    if uid in settings.admin_ids:
+        alang = normalize_locale(await db.get_user_lang(uid))
+        await message.answer(
+            tr(alang, "cmd_cancel_done_menu"),
+            reply_markup=admin_menu_keyboard(alang),
+        )
+        return
+    if await db.user_has_phone(uid):
         lang = normalize_locale(await db.get_user_lang(uid))
         await message.answer(
             tr(lang, "cmd_cancel_done_menu"),

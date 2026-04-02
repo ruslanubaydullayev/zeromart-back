@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Activate the project venv (if present) and start ZeroMart.
+# Usage: ./activate-bot   or   bash activate-bot
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+if [[ -f .venv/bin/activate ]]; then
+  # shellcheck source=/dev/null
+  source .venv/bin/activate
+elif [[ -f venv/bin/activate ]]; then
+  # shellcheck source=/dev/null
+  source venv/bin/activate
+else
+  echo "No .venv/ or venv/ found. Create one and install deps:" >&2
+  echo "  python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt" >&2
+  exit 1
+fi
+
+exec python3 main.py "$@"

@@ -47,6 +47,13 @@ def main_menu_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True)
 
 
+def admin_menu_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    builder.row(KeyboardButton(text=tr(locale, "menu_admin_stats")))
+    builder.row(KeyboardButton(text=tr(locale, "menu_change_language")))
+    return builder.as_markup(resize_keyboard=True)
+
+
 def contact_keyboard(locale: str | None) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text=tr(locale, "share_contact"), request_contact=True))
