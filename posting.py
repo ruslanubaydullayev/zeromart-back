@@ -59,6 +59,31 @@ async def sync_channel_post_caption(bot: Bot, chat_id: str | int, ad: AdRecord) 
             logger.warning("Не удалось обновить пост в канале ad=%s: %s", ad.id, e)
 
 
+async def sync_moderation_post_caption(bot: Bot, message: Message, ad: AdRecord) -> None:
+    """Обновляет подпись сообщения у админа (после одобрения — «в канале», а не «на модерации»)."""
+    prefix = f"🛂 Модерация · #{ad.id}"
+    caption = _truncate_caption(_caption_for_ad(ad, prefix))
+    chat_id = message.chat.id
+    msg_id = message.message_id
+    try:
+        await bot.edit_message_caption(
+            chat_id=chat_id,
+            message_id=msg_id,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramAPIError:
+        try:
+            await bot.edit_message_text(
+                text=caption,
+                chat_id=chat_id,
+                message_id=msg_id,
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramAPIError as e:
+            logger.warning("Не удалось обновить модерацию ad=%s: %s", ad.id, e)
+
+
 def _caption_for_ad(
     ad: AdRecord,
     prefix: str | None = None,

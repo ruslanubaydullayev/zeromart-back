@@ -13,7 +13,7 @@ from config import settings
 from database import Database
 from keyboards import admin_reject_options_keyboard, main_menu_keyboard
 from language import normalize_locale, tr
-from posting import send_ad_media
+from posting import send_ad_media, sync_moderation_post_caption
 from states import AdminFlow
 
 router = Router(name="admin")
@@ -144,6 +144,7 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         channel_message_id=first_id,
         channel_message_ids_json=ids_json,
     )
+    ad_updated = await db.get_ad(ad_id)
     user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
     await bot.send_message(
         ad.user_id,
@@ -151,6 +152,8 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         reply_markup=main_menu_keyboard(user_lang),
     )
     await cq.answer("Опубликовано")
+    if ad_updated:
+        await sync_moderation_post_caption(bot, cq.message, ad_updated)
     try:
         await cq.message.edit_reply_markup(reply_markup=None)
     except Exception:
