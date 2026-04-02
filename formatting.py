@@ -18,13 +18,26 @@ def build_channel_caption(
     rayon: str,
     comment: str,
     phone: str,
+    *,
+    ad_status: str,
+    show_phone: bool | None = None,
 ) -> str:
+    """Подпись для канала/модерации: статус всегда виден; телефон скрыт для продано/снято."""
+    if show_phone is None:
+        show_phone = ad_status in ("pending", "approved")
+    status_text = tr("ru", f"channel_status_{ad_status}")
+    phone_line = (
+        f"📞 {escape(phone)}"
+        if show_phone
+        else f"📞 {escape(tr('ru', 'channel_phone_hidden'))}"
+    )
     return (
+        f"📌 <b>{escape(status_text)}</b>\n\n"
         f"{escape(tr('ru', 'caption_category', label=channel_category_line(category)))}\n\n"
         f"<b>{escape(title)}</b>\n\n"
         f"📍 {escape(region)}, {escape(rayon)}\n\n"
         f"{escape(comment)}\n\n"
-        f"📞 {escape(phone)}"
+        f"{phone_line}"
     )
 
 

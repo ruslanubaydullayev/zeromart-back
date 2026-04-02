@@ -16,28 +16,6 @@ from formatting import build_channel_caption
 logger = logging.getLogger(__name__)
 
 
-async def try_delete_ad_from_channel(bot: Bot, chat_id: str | int, ad: AdRecord) -> None:
-    """Удаляет все сообщения поста в канале (альбом = несколько message_id)."""
-    if chat_id is None or chat_id == "":
-        return
-    ids: list[int] = []
-    raw = ad.channel_message_ids
-    if raw:
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                ids = [int(x) for x in parsed if x is not None]
-        except (json.JSONDecodeError, TypeError, ValueError):
-            ids = []
-    if not ids and ad.channel_message_id is not None:
-        ids = [ad.channel_message_id]
-    for mid in ids:
-        try:
-            await bot.delete_message(chat_id, mid)
-        except TelegramAPIError as e:
-            logger.warning("Не удалить сообщение %s в канале: %s", mid, e)
-
-
 def _channel_message_ids(ad: AdRecord) -> list[int]:
     ids: list[int] = []
     raw = ad.channel_message_ids
@@ -53,43 +31,41 @@ def _channel_message_ids(ad: AdRecord) -> list[int]:
     return ids
 
 
-async def mark_ad_as_found_owner(
-    bot: Bot,
-    chat_id: str | int,
-    ad: AdRecord,
-    *,
-    marker_text: str = "O'z egasini topdi 🎉 | Нашел свой владелец 🎉",
-) -> None:
-    """Adds sold marker to the existing channel ad message."""
+async def sync_channel_post_caption(bot: Bot, chat_id: str | int, ad: AdRecord) -> None:
+    """Обновляет подпись первого сообщения поста в канале (статус + скрытие телефона)."""
     if chat_id is None or chat_id == "":
         return
     ids = _channel_message_ids(ad)
     if not ids:
         return
     msg_id = ids[0]
-    marker_line = f"✅ {marker_text}"
-    base_caption = _truncate_caption(_caption_for_ad(ad))
-    updated_caption = _truncate_caption(f"{base_caption}\n\n{marker_line}")
+    caption = _truncate_caption(_caption_for_ad(ad))
     try:
         await bot.edit_message_caption(
             chat_id=chat_id,
             message_id=msg_id,
-            caption=updated_caption,
+            caption=caption,
             parse_mode=ParseMode.HTML,
         )
     except TelegramAPIError:
         try:
             await bot.edit_message_text(
-                text=updated_caption,
+                text=caption,
                 chat_id=chat_id,
                 message_id=msg_id,
                 parse_mode=ParseMode.HTML,
             )
         except TelegramAPIError as e:
-            logger.warning("Не удалось пометить продажу в сообщении ad=%s: %s", ad.id, e)
+            logger.warning("Не удалось обновить пост в канале ad=%s: %s", ad.id, e)
 
 
-def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:
+def _caption_for_ad(
+    ad: AdRecord,
+    prefix: str | None = None,
+    *,
+    caption_status: str | None = None,
+) -> str:
+    st = caption_status if caption_status is not None else ad.status
     body = build_channel_caption(
         ad.category,
         ad.title,
@@ -97,6 +73,7 @@ def _caption_for_ad(ad: AdRecord, prefix: str | None = None) -> str:
         ad.rayon,
         ad.comment,
         ad.phone,
+        ad_status=st,
     )
     if prefix:
         return f"{prefix}\n\n{body}"
@@ -116,9 +93,12 @@ async def send_ad_media(
     media: list[MediaItem],
     reply_markup=None,
     caption_prefix: str | None = None,
+    caption_status: str | None = None,
 ) -> list[Message]:
     """Post ad visuals + caption. Returns sent messages (for channel_message_id)."""
-    caption = _truncate_caption(_caption_for_ad(ad, caption_prefix))
+    caption = _truncate_caption(
+        _caption_for_ad(ad, caption_prefix, caption_status=caption_status)
+    )
     parse = ParseMode.HTML
 
     if not media:

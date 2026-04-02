@@ -13,7 +13,7 @@ from config import settings
 from database import AdRecord, Database
 from keyboards import main_menu_keyboard
 from language import all_variant_texts, normalize_locale, tr
-from posting import mark_ad_as_found_owner, try_delete_ad_from_channel
+from posting import sync_channel_post_caption
 
 router = Router(name="my_ads")
 
@@ -122,8 +122,10 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if ad.status != "approved":
             await cq.answer("Действие недоступно для этого статуса.", show_alert=True)
             return
-        await mark_ad_as_found_owner(bot, settings.channel_id, ad)
         await db.set_ad_status(ad_id, "delivered")
+        ad_updated = await db.get_ad(ad_id)
+        if ad_updated and settings.channel_id:
+            await sync_channel_post_caption(bot, settings.channel_id, ad_updated)
         await cq.answer("Отмечено: доставлено")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
@@ -139,9 +141,12 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if ad.status not in ("pending", "approved"):
             await cq.answer("Уже закрыто.", show_alert=True)
             return
-        if ad.status == "approved":
-            await try_delete_ad_from_channel(bot, settings.channel_id, ad)
+        was_approved = ad.status == "approved"
         await db.set_ad_status(ad_id, "withdrawn")
+        if was_approved:
+            ad_updated = await db.get_ad(ad_id)
+            if ad_updated and settings.channel_id:
+                await sync_channel_post_caption(bot, settings.channel_id, ad_updated)
         await cq.answer("Снято с продажи")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
@@ -149,7 +154,7 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
             pass
         note = (
             tr(lang, "myad_done_withdraw_pending", id=ad_id)
-            if ad.status == "pending"
+            if not was_approved
             else tr(lang, "myad_done_withdraw_channel", id=ad_id)
         )
         await cq.message.answer(note, reply_markup=main_menu_keyboard(lang))

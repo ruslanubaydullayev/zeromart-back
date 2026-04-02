@@ -124,6 +124,7 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
             media,
             reply_markup=None,
             caption_prefix=None,
+            caption_status="approved",
         )
     except Exception as e:
         logger.exception(
