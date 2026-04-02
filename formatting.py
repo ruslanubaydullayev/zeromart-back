@@ -28,20 +28,18 @@ def build_channel_caption(
     if show_phone is None:
         show_phone = ad_status in ("pending", "approved")
     status_text = tr(loc, f"channel_status_{ad_status}")
-    phone_line = (
-        f"📞 {escape(phone)}"
-        if show_phone
-        else f"📞 {escape(tr(loc, 'channel_phone_hidden'))}"
-    )
     cat_label = category_label(loc, category)
-    return (
-        f"📌 <b>{escape(status_text)}</b>\n\n"
-        f"{escape(tr(loc, 'caption_category', label=cat_label))}\n\n"
-        f"<b>{escape(title)}</b>\n\n"
-        f"📍 {escape(region)}, {escape(rayon)}\n\n"
-        f"{escape(comment)}\n\n"
-        f"{phone_line}"
-    )
+    phone_val = escape(phone) if show_phone else escape(tr(loc, "channel_phone_hidden"))
+    lines = [
+        f"📌 <b>{escape(status_text)}</b>",
+        tr(loc, "channel_line_title", value=escape(title)),
+        tr(loc, "channel_line_category", value=escape(cat_label)),
+        tr(loc, "channel_line_region", value=escape(region)),
+        tr(loc, "channel_line_rayon", value=escape(rayon)),
+        tr(loc, "channel_line_comment", value=escape(comment)),
+        tr(loc, "channel_line_phone", value=phone_val),
+    ]
+    return "\n".join(lines)
 
 
 def build_summary_for_seller(
