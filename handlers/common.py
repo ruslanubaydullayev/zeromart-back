@@ -24,8 +24,9 @@ async def cmd_start(message: Message, state: FSMContext, db: Database) -> None:
     await db.upsert_user(uid, phone=None, lang=None, username=username, display_name=name)
 
     if uid in settings.admin_ids:
+        alang = normalize_locale(await db.get_user_lang(uid))
         await message.answer(
-            tr("ru", "admin_welcome"),
+            tr(alang, "admin_welcome"),
             parse_mode="HTML",
         )
         return
@@ -75,7 +76,10 @@ async def set_language(cq: CallbackQuery, state: FSMContext, db: Database) -> No
         pass
 
     if uid in settings.admin_ids:
-        await cq.message.answer(tr("ru", "admin_welcome"), parse_mode="HTML")
+        await cq.message.answer(
+            tr(lang, "admin_welcome"),
+            parse_mode="HTML",
+        )
         return
 
     if await db.user_has_phone(uid):

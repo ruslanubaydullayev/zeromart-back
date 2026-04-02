@@ -5,12 +5,13 @@ import json
 import logging
 
 from aiogram import Bot, F, Router
+from aiogram.filters import Command
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from config import settings
-from database import Database
+from database import Database, stats_period_starts
 from keyboards import admin_reject_options_keyboard, main_menu_keyboard
 from language import normalize_locale, tr
 from posting import send_ad_media, sync_moderation_post_caption
@@ -60,6 +61,27 @@ def _parse_mod_callback(data: str) -> tuple[str, int] | None:
     if action not in ("approve", "reject", "reject_reason", "reject_skip"):
         return None
     return action, ad_id
+
+
+@router.message(Command("stats"))
+async def cmd_admin_stats(message: Message, db: Database) -> None:
+    if message.from_user.id not in _admin_ids():
+        return
+    lang = normalize_locale(await db.get_user_lang(message.from_user.id))
+    today_s, week_s, month_s = stats_period_starts()
+    today_c = await db.count_ads_since(today_s)
+    week_c = await db.count_ads_since(week_s)
+    month_c = await db.count_ads_since(month_s)
+    all_c = await db.count_ads_all()
+    text = (
+        f"{tr(lang, 'admin_stats_title')}\n\n"
+        f"{tr(lang, 'admin_stats_line', label=tr(lang, 'admin_stats_today'), count=today_c)}\n"
+        f"{tr(lang, 'admin_stats_line', label=tr(lang, 'admin_stats_week'), count=week_c)}\n"
+        f"{tr(lang, 'admin_stats_line', label=tr(lang, 'admin_stats_month'), count=month_c)}\n"
+        f"{tr(lang, 'admin_stats_line', label=tr(lang, 'admin_stats_all'), count=all_c)}\n\n"
+        f"<i>{tr(lang, 'admin_stats_timezone_note')}</i>"
+    )
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("mod:"))

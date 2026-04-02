@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 import aiosqlite
+
+# Календарные «сегодня / неделя / месяц» для статистики админа
+_STATS_TZ = ZoneInfo("Asia/Tashkent")
 
 
 SCHEMA = """
@@ -76,6 +82,23 @@ class MediaItem:
     kind: str
     file_id: str
     position: int
+
+
+def stats_period_starts(now: float | None = None) -> tuple[float, float, float]:
+    """(начало сегодня, начало недели с пн, начало месяца) в Asia/Tashkent, UNIX."""
+    t = time.time() if now is None else now
+    dt = datetime.fromtimestamp(t, tz=_STATS_TZ)
+    today_start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    monday_offset = dt.weekday()
+    week_start = (dt - timedelta(days=monday_offset)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    month_start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return (
+        today_start.timestamp(),
+        week_start.timestamp(),
+        month_start.timestamp(),
+    )
 
 
 class Database:
@@ -179,6 +202,23 @@ class Database:
                 """,
                 (user_id, since_ts),
             )
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
+
+    async def count_ads_since(self, since_ts: float) -> int:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM ads WHERE created_at >= ?",
+                (since_ts,),
+            )
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
+
+    async def count_ads_all(self) -> int:
+        async with aiosqlite.connect(self._path) as db:
+            await self._prepare(db)
+            cur = await db.execute("SELECT COUNT(*) FROM ads")
             row = await cur.fetchone()
             return int(row[0]) if row else 0
 
