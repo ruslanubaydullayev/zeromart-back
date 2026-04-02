@@ -151,6 +151,7 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         return
 
     media = await db.get_ad_media(ad_id)
+    cap_lang = normalize_locale(await db.get_user_lang(ad.user_id))
     try:
         msgs = await send_ad_media(
             bot,
@@ -160,6 +161,7 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
             reply_markup=None,
             caption_prefix=None,
             caption_status="approved",
+            caption_locale=cap_lang,
         )
     except Exception as e:
         logger.exception(
@@ -180,7 +182,7 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
         channel_message_ids_json=ids_json,
     )
     ad_updated = await db.get_ad(ad_id)
-    user_lang = normalize_locale(await db.get_user_lang(ad.user_id))
+    user_lang = cap_lang
     published_text = tr(user_lang, "ad_approved_published")
     post_url = (
         channel_post_url(settings.channel_id, first_id) if first_id is not None else None
@@ -199,7 +201,9 @@ async def moderation_callback(cq: CallbackQuery, state: FSMContext, db: Database
     )
     await cq.answer("Опубликовано")
     if ad_updated:
-        await sync_moderation_post_caption(bot, cq.message, ad_updated)
+        await sync_moderation_post_caption(
+            bot, cq.message, ad_updated, caption_locale=cap_lang
+        )
     try:
         await cq.message.edit_reply_markup(reply_markup=None)
     except Exception:

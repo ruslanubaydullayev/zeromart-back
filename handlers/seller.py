@@ -812,4 +812,5 @@ async def seller_confirm_ad(cq: CallbackQuery, state: FSMContext, db: Database, 
             reply_markup=kb,
             caption_prefix=prefix,
             caption_status="pending",
+            caption_locale=lang,
         )

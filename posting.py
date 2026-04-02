@@ -31,7 +31,13 @@ def _channel_message_ids(ad: AdRecord) -> list[int]:
     return ids
 
 
-async def sync_channel_post_caption(bot: Bot, chat_id: str | int, ad: AdRecord) -> None:
+async def sync_channel_post_caption(
+    bot: Bot,
+    chat_id: str | int,
+    ad: AdRecord,
+    *,
+    caption_locale: str | None = None,
+) -> None:
     """Обновляет подпись первого сообщения поста в канале (статус + скрытие телефона)."""
     if chat_id is None or chat_id == "":
         return
@@ -39,7 +45,7 @@ async def sync_channel_post_caption(bot: Bot, chat_id: str | int, ad: AdRecord) 
     if not ids:
         return
     msg_id = ids[0]
-    caption = _truncate_caption(_caption_for_ad(ad))
+    caption = _truncate_caption(_caption_for_ad(ad, caption_locale=caption_locale))
     try:
         await bot.edit_message_caption(
             chat_id=chat_id,
@@ -59,10 +65,18 @@ async def sync_channel_post_caption(bot: Bot, chat_id: str | int, ad: AdRecord) 
             logger.warning("Не удалось обновить пост в канале ad=%s: %s", ad.id, e)
 
 
-async def sync_moderation_post_caption(bot: Bot, message: Message, ad: AdRecord) -> None:
+async def sync_moderation_post_caption(
+    bot: Bot,
+    message: Message,
+    ad: AdRecord,
+    *,
+    caption_locale: str | None = None,
+) -> None:
     """Обновляет подпись сообщения у админа (после одобрения — «в канале», а не «на модерации»)."""
     prefix = f"🛂 Модерация · #{ad.id}"
-    caption = _truncate_caption(_caption_for_ad(ad, prefix))
+    caption = _truncate_caption(
+        _caption_for_ad(ad, prefix, caption_locale=caption_locale)
+    )
     chat_id = message.chat.id
     msg_id = message.message_id
     try:
@@ -89,6 +103,7 @@ def _caption_for_ad(
     prefix: str | None = None,
     *,
     caption_status: str | None = None,
+    caption_locale: str | None = None,
 ) -> str:
     st = caption_status if caption_status is not None else ad.status
     body = build_channel_caption(
@@ -99,6 +114,7 @@ def _caption_for_ad(
         ad.comment,
         ad.phone,
         ad_status=st,
+        locale=caption_locale,
     )
     if prefix:
         return f"{prefix}\n\n{body}"
@@ -119,10 +135,16 @@ async def send_ad_media(
     reply_markup=None,
     caption_prefix: str | None = None,
     caption_status: str | None = None,
+    caption_locale: str | None = None,
 ) -> list[Message]:
     """Post ad visuals + caption. Returns sent messages (for channel_message_id)."""
     caption = _truncate_caption(
-        _caption_for_ad(ad, caption_prefix, caption_status=caption_status)
+        _caption_for_ad(
+            ad,
+            caption_prefix,
+            caption_status=caption_status,
+            caption_locale=caption_locale,
+        )
     )
     parse = ParseMode.HTML
 

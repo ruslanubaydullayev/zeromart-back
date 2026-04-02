@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import html
 
-from language import category_label, channel_category_line, tr
+from language import category_label, normalize_locale, tr
 
 
 def escape(text: str) -> str:
@@ -20,20 +20,23 @@ def build_channel_caption(
     phone: str,
     *,
     ad_status: str,
+    locale: str | None = None,
     show_phone: bool | None = None,
 ) -> str:
-    """Подпись для канала/модерации: статус всегда виден; телефон скрыт для продано/снято."""
+    """Подпись для канала/модерации: статус и категория на языке продавца."""
+    loc = normalize_locale(locale)
     if show_phone is None:
         show_phone = ad_status in ("pending", "approved")
-    status_text = tr("ru", f"channel_status_{ad_status}")
+    status_text = tr(loc, f"channel_status_{ad_status}")
     phone_line = (
         f"📞 {escape(phone)}"
         if show_phone
-        else f"📞 {escape(tr('ru', 'channel_phone_hidden'))}"
+        else f"📞 {escape(tr(loc, 'channel_phone_hidden'))}"
     )
+    cat_label = category_label(loc, category)
     return (
         f"📌 <b>{escape(status_text)}</b>\n\n"
-        f"{escape(tr('ru', 'caption_category', label=channel_category_line(category)))}\n\n"
+        f"{escape(tr(loc, 'caption_category', label=cat_label))}\n\n"
         f"<b>{escape(title)}</b>\n\n"
         f"📍 {escape(region)}, {escape(rayon)}\n\n"
         f"{escape(comment)}\n\n"

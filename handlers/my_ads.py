@@ -125,7 +125,10 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         await db.set_ad_status(ad_id, "delivered")
         ad_updated = await db.get_ad(ad_id)
         if ad_updated and settings.channel_id:
-            await sync_channel_post_caption(bot, settings.channel_id, ad_updated)
+            cap_lang = normalize_locale(await db.get_user_lang(ad_updated.user_id))
+            await sync_channel_post_caption(
+                bot, settings.channel_id, ad_updated, caption_locale=cap_lang
+            )
         await cq.answer("Отмечено: доставлено")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
@@ -146,7 +149,10 @@ async def my_ad_action(cq: CallbackQuery, db: Database, bot: Bot) -> None:
         if was_approved:
             ad_updated = await db.get_ad(ad_id)
             if ad_updated and settings.channel_id:
-                await sync_channel_post_caption(bot, settings.channel_id, ad_updated)
+                cap_lang = normalize_locale(await db.get_user_lang(ad_updated.user_id))
+                await sync_channel_post_caption(
+                    bot, settings.channel_id, ad_updated, caption_locale=cap_lang
+                )
         await cq.answer("Снято с продажи")
         try:
             await cq.message.edit_reply_markup(reply_markup=None)
