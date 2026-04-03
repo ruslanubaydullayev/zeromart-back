@@ -9,6 +9,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Shown in Telegram before the user taps «Start» (Bot API setMyDescription, plain text, max 512 chars).
+BOT_PROFILE_DESCRIPTION = (
+    "Salom! Bu bot orqali siz o'zingizning ehtiyojingizdan tashqari bo'lgan buyumlarni shu "
+    "narsaga muhtoj bo'lgan insonga berib yuborishingiz mumkin. E'lon berish bepul.\n"
+    "-----------------\n"
+    "Привет! С помощью этого бота вы можете пожертвовать ненужные вам вещи тем, кто в них "
+    "нуждается. Размещение объявления бесплатно."
+)
+
 
 @dataclass(frozen=True)
 class Settings:

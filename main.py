@@ -11,7 +11,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import settings
+from config import BOT_PROFILE_DESCRIPTION, settings
 from database import Database
 from handlers import admin_router, common_router, my_ads_router, seller_router
 from middlewares import DatabaseMiddleware
@@ -54,6 +54,11 @@ async def main() -> None:
     await db.init()
 
     bot = _make_bot()
+    try:
+        await bot.set_my_description(BOT_PROFILE_DESCRIPTION[:512])
+    except Exception as err:
+        logging.warning("set_my_description failed (bot still runs): %s", err)
+
     dp = Dispatcher(storage=MemoryStorage())
     dp.update.middleware(DatabaseMiddleware(db))
 
